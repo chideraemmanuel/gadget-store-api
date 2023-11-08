@@ -204,11 +204,12 @@ export const updateProduct = async (
     count_in_stock,
   } = request.body;
 
-  if (!id) {
-    return response
-      .status(400)
-      .json({ error: 'Please enter the ID if the document to be updated.' });
-  }
+  // REDUNDANT***************
+  // if (!id) {
+  //   return response
+  //     .status(400)
+  //     .json({ error: 'Please enter the ID if the document to be updated.' });
+  // }
 
   if (!mongoose.isValidObjectId(id)) {
     return response.status(400).json({ error: 'Invalid Product ID' });
@@ -323,4 +324,34 @@ export const updateProduct = async (
   }
 };
 
-// DELETE PRODUCT!!!!*********!!!!!!!!
+export const deleteProduct = async (
+  request: express.Request,
+  response: express.Response
+) => {
+  const { id } = request.params;
+
+  if (!mongoose.isValidObjectId(id)) {
+    return response.status(400).json({ error: 'Invalid product ID' });
+  }
+
+  try {
+    const productExists = await Product.findById(id);
+
+    if (!productExists) {
+      return response
+        .status(404)
+        .json({ error: 'Product with the supplied ID does not exist.' });
+    }
+
+    try {
+      await Product.findByIdAndDelete(id);
+      return response
+        .status(200)
+        .json({ message: 'Product deleted successfully' });
+    } catch (error: any) {
+      console.log('[PRODUCT_DELETION_ERROR]', error);
+    }
+  } catch (error: any) {
+    console.log('[PRODUCT_FETCH_ERROR]', error);
+  }
+};

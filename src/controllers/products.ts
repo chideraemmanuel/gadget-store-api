@@ -1,9 +1,11 @@
-import express, { request } from 'express';
+import express, { request, response } from 'express';
 import { products } from '../db';
 import Product from '../models/product';
 import Category from '../models/category';
 import mongoose from 'mongoose';
 import { json } from 'body-parser';
+import { ObjectId } from 'mongodb';
+import { paginateQuery } from '../lib/helpers';
 
 interface GetQueryParams {
   // product_name?: string;
@@ -13,7 +15,7 @@ interface GetQueryParams {
     $gte: number;
     $lte: number;
   };
-  category?: string;
+  category?: ObjectId;
 }
 
 export const getProducts = async (
@@ -22,8 +24,16 @@ export const getProducts = async (
 ) => {
   // const queryParams = request.query;
 
-  const { brand, price_range, category } = request.query;
+  const { brand, price_range, category, page, limit } = request.query;
   // console.log(product_name, brand, price_range, category);
+
+  if (page && isNaN(page as any)) {
+    return response.status(400).json({ error: 'Page should be a number.' });
+  }
+
+  if (limit && isNaN(limit as any)) {
+    return response.status(400).json({ error: 'Limit should be a number.' });
+  }
 
   // Build the filter object based on query parameters
   const filter: GetQueryParams = {};
@@ -32,15 +42,19 @@ export const getProducts = async (
   //   filter.product_name = q.toString();
   // }
 
-  // if (category) {
-  //   const storedCategory = await Category.findOne({ name: categoryName });
-  //   if (category) {
-  //     filter.category = storedCategory._id;
-  //   } else {
-  //     // Handle the case where the specified category does not exist
-  //     return response.status(404).json({ error: 'Category not found' });
-  //   }
-  // }
+  if (category) {
+    try {
+      const storedCategory = await Category.findOne({ name: category });
+
+      if (!storedCategory) {
+        return response.status(404).json({ error: 'Category does not exist' });
+      }
+
+      filter.category = storedCategory?._id;
+    } catch (error: any) {
+      console.log('[CATEGORY_FETCH_ERROR]', error);
+    }
+  }
 
   if (brand) {
     // filter.brand = brand.toString();
@@ -56,8 +70,18 @@ export const getProducts = async (
   console.log(filter);
 
   try {
-    const products = await Product.find(filter).populate('category');
-    response.status(200).json(products);
+    // const products = await Product.find(filter).populate('category');
+    // response.status(200).json(products);
+
+    const paginationResponse = await paginateQuery(
+      Product,
+      response,
+      filter,
+      parseInt(page as string),
+      parseInt(limit as string)
+    );
+
+    return paginationResponse;
   } catch (error: any) {
     console.log('DATABASE_SEARCH_ERROR', error);
     return response.status(500).json({ error: 'Internal Server Error' });

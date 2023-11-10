@@ -96,21 +96,51 @@ export const addProduct = async (
   request: express.Request,
   response: express.Response
 ) => {
-  // const product = request.body;
-  // const {
-  //   product_name,
-  //   brand,
-  //   description,
-  //   price,
-  //   category,
-  //   main_image,
-  //   other_images,
-  //   count_in_stock,
-  // } = product;
+  // upload.single('main_image')(request, response, async (error) => {
+  //   if (error) {
+  //     return response
+  //       .status(500)
+  //       .json({ error: error.message, msg: error.stack });
+  //   }
 
-  upload.single('main_image')(request, response, async (error) => {
+  //   // upload.array('other_images')(request, response, async (error) => {
+
+  //   // if (error) {
+  //   //   return response.status(500).json({ error: error.message });
+  //   // }
+
+  //   // if (!request.file || !request.files) {
+  //   //   return response.status(400).json({
+  //   //     error: 'Please supply the required product fields.',
+  //   //   });
+  //   // }
+  //   // });
+
+  // });
+
+  upload.fields([
+    { name: 'main_image', maxCount: 1 },
+    { name: 'other_images' },
+  ])(request, response, async (error: any) => {
+    if (
+      error?.code === 'LIMIT_FILE_COUNT' ||
+      error?.code === 'LIMIT_UNEXPECTED_FILE'
+    ) {
+      return response.status(400).json({
+        error: 'Main image should be a single file',
+        errorCode: error?.code,
+      });
+    }
+
     if (error) {
-      response.status(500).json({ error: error.message });
+      return response.status(500).json({ error: error.message });
+    }
+
+    // @ts-ignore
+    if (!request.files?.main_image || !request.files?.other_images) {
+      return response.status(400).json({
+        error: 'Please supply the required product fields.',
+      });
     }
 
     const product = request.body;
@@ -125,18 +155,18 @@ export const addProduct = async (
       count_in_stock,
     } = product;
 
-    console.log({
-      product_name,
-      brand,
-      description,
-      price,
-      category,
-      main_image,
-      other_images,
-      count_in_stock,
+    // console.log('req file', request.file);
+    // console.log('req files', request.files);
+
+    // @ts-ignore
+    const mainImage = request.files?.main_image[0];
+    // @ts-ignore
+    const otherImages = request.files?.other_images.map((file) => {
+      return `http://localhost:5000/public/assets/${file?.filename}`;
     });
 
-    // console.log('req file', request.file);
+    console.log('main image', mainImage);
+    console.log('other images', otherImages);
 
     if (
       !product_name ||
@@ -144,9 +174,11 @@ export const addProduct = async (
       !description ||
       !price ||
       !category ||
+      !count_in_stock ||
       // !main_image ||
       // !other_images ||
-      !count_in_stock
+      !mainImage ||
+      !otherImages
     ) {
       return response.status(400).json({
         error: 'Please supply the required product fields.',
@@ -179,17 +211,6 @@ export const addProduct = async (
         .json({ error: 'Category with the provided ID does not exist.' });
     }
 
-    // const editedProducts = {
-    //   product_name: `${product_name}`.toLowerCase(),
-    //   brand: `${brand}`.toLowerCase(),
-    //   description: `${description}`.toLowerCase(),
-    //   price: price as number,
-    //   // category,
-    //   main_image: `${main_image}`.toLowerCase(),
-    //   other_images: [...other_images].map((image: string) => image.toLowerCase()),
-    //   count_in_stock: count_in_stock as number,
-    // };
-
     try {
       // console.log('[REQUEST]', request);
 
@@ -205,8 +226,8 @@ export const addProduct = async (
         description,
         price,
         category,
-        main_image: `http://localhost:5000/public/assets/${request.file?.filename}`,
-        other_images,
+        main_image: `http://localhost:5000/public/assets/${mainImage?.filename}`,
+        other_images: otherImages,
         count_in_stock: count_in_stock as number,
       });
       return response.status(201).json(addedProduct);

@@ -5,7 +5,7 @@ import {
   getProducts,
   updateProduct,
 } from '../controllers/products';
-import upload from '../config/multer';
+// import upload from '../config/multer';
 
 const router = express.Router();
 

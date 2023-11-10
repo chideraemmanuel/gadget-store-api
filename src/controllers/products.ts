@@ -6,6 +6,8 @@ import mongoose from 'mongoose';
 import { json } from 'body-parser';
 import { ObjectId } from 'mongodb';
 import { paginateQuery } from '../lib/helpers';
+import upload from '../config/multer';
+import { port } from '../index';
 
 interface GetQueryParams {
   // product_name?: string;
@@ -94,72 +96,25 @@ export const addProduct = async (
   request: express.Request,
   response: express.Response
 ) => {
-  const product = request.body;
-  const {
-    product_name,
-    brand,
-    description,
-    price,
-    category,
-    main_image,
-    other_images,
-    count_in_stock,
-  } = product;
+  // const product = request.body;
+  // const {
+  //   product_name,
+  //   brand,
+  //   description,
+  //   price,
+  //   category,
+  //   main_image,
+  //   other_images,
+  //   count_in_stock,
+  // } = product;
 
-  if (
-    !product_name ||
-    !brand ||
-    !description ||
-    !price ||
-    !category ||
-    !main_image ||
-    // !other_images ||
-    !count_in_stock
-  ) {
-    return response.status(400).json({
-      error: 'Please supply the required product fields.',
-    });
-  }
+  upload.single('main_image')(request, response, async (error) => {
+    if (error) {
+      response.status(500).json({ error: error.message });
+    }
 
-  // CHECK IF PRICE IS A NUMBER
-  if (isNaN(price)) {
-    return response.status(400).json({ error: 'Price should be a number' });
-  }
-
-  // CHECK IF COUNT IN STOCK IS A NUMBER
-  if (isNaN(count_in_stock)) {
-    return response
-      .status(400)
-      .json({ error: 'Count in stock should be a number' });
-  }
-
-  // CHECK IF CATEGORY ID IS VALID
-  if (!mongoose.isValidObjectId(category)) {
-    return response.status(400).json({ error: 'Invalid Object ID' });
-  }
-
-  // CHECK IF CATEGORY EXISTS
-  const categoryExists = await Category.findById(category);
-
-  if (!categoryExists) {
-    return response
-      .status(404)
-      .json({ error: 'Category with the provided ID does not exist.' });
-  }
-
-  // const editedProducts = {
-  //   product_name: `${product_name}`.toLowerCase(),
-  //   brand: `${brand}`.toLowerCase(),
-  //   description: `${description}`.toLowerCase(),
-  //   price: price as number,
-  //   // category,
-  //   main_image: `${main_image}`.toLowerCase(),
-  //   other_images: [...other_images].map((image: string) => image.toLowerCase()),
-  //   count_in_stock: count_in_stock as number,
-  // };
-
-  try {
-    const addedProduct = await Product.create({
+    const product = request.body;
+    const {
       product_name,
       brand,
       description,
@@ -167,13 +122,101 @@ export const addProduct = async (
       category,
       main_image,
       other_images,
-      count_in_stock: count_in_stock as number,
+      count_in_stock,
+    } = product;
+
+    console.log({
+      product_name,
+      brand,
+      description,
+      price,
+      category,
+      main_image,
+      other_images,
+      count_in_stock,
     });
-    return response.status(201).json(addedProduct);
-  } catch (error: any) {
-    console.log('[ADD_PRODUCT_ERROR]', error);
-    return response.status(500).json({ error: 'Internal Server Error' });
-  }
+
+    // console.log('req file', request.file);
+
+    if (
+      !product_name ||
+      !brand ||
+      !description ||
+      !price ||
+      !category ||
+      // !main_image ||
+      // !other_images ||
+      !count_in_stock
+    ) {
+      return response.status(400).json({
+        error: 'Please supply the required product fields.',
+      });
+    }
+
+    // CHECK IF PRICE IS A NUMBER
+    if (isNaN(price)) {
+      return response.status(400).json({ error: 'Price should be a number' });
+    }
+
+    // CHECK IF COUNT IN STOCK IS A NUMBER
+    if (isNaN(count_in_stock)) {
+      return response
+        .status(400)
+        .json({ error: 'Count in stock should be a number' });
+    }
+
+    // CHECK IF CATEGORY ID IS VALID
+    if (!mongoose.isValidObjectId(category)) {
+      return response.status(400).json({ error: 'Invalid Object ID' });
+    }
+
+    // CHECK IF CATEGORY EXISTS
+    const categoryExists = await Category.findById(category);
+
+    if (!categoryExists) {
+      return response
+        .status(404)
+        .json({ error: 'Category with the provided ID does not exist.' });
+    }
+
+    // const editedProducts = {
+    //   product_name: `${product_name}`.toLowerCase(),
+    //   brand: `${brand}`.toLowerCase(),
+    //   description: `${description}`.toLowerCase(),
+    //   price: price as number,
+    //   // category,
+    //   main_image: `${main_image}`.toLowerCase(),
+    //   other_images: [...other_images].map((image: string) => image.toLowerCase()),
+    //   count_in_stock: count_in_stock as number,
+    // };
+
+    try {
+      // console.log('[REQUEST]', request);
+
+      // console.log('[REQUEST_PROTOCOL]', request.protocol);
+      // console.log('[REQUEST_HOSTNAME]', request.hostname);
+      // console.log('[REQUEST_BASE_URL]', request.baseUrl);
+
+      // const baseUrl = `${request.protocol}://${request.hostname}:${port}/public/assets`
+
+      const addedProduct = await Product.create({
+        product_name,
+        brand,
+        description,
+        price,
+        category,
+        main_image: `http://localhost:5000/public/assets/${request.file?.filename}`,
+        other_images,
+        count_in_stock: count_in_stock as number,
+      });
+      return response.status(201).json(addedProduct);
+    } catch (error: any) {
+      console.log('[ADD_PRODUCT_ERROR]', error);
+      return response.status(500).json({ error: 'Internal Server Error' });
+    }
+  });
+
+  // console.log('req file2', request.file);
 };
 
 // ******************************************

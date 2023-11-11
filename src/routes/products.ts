@@ -3,6 +3,7 @@ import {
   addProduct,
   deleteProduct,
   getProducts,
+  getSingleProduct,
   updateProduct,
 } from '../controllers/products';
 // import upload from '../config/multer';
@@ -10,6 +11,7 @@ import {
 const router = express.Router();
 
 router.get('/', getProducts);
+router.get('/:id', getSingleProduct);
 // router.post('/', upload.single('main_image'), addProduct);
 router.post('/', addProduct);
 router.put('/:id', updateProduct);

@@ -46,8 +46,15 @@ export const getProducts = async (
   // }
 
   if (category) {
+    const isValidId = mongoose.isValidObjectId(category);
+
     try {
-      const storedCategory = await Category.findOne({ name: category });
+      // const storedCategory = await Category.findOne({
+      //   $or: [{ name: category }, { _id: category }],
+      // });
+      const storedCategory = isValidId
+        ? await Category.findById(category)
+        : await Category.findOne({ name: category });
 
       if (!storedCategory) {
         return response.status(404).json({ error: 'Category does not exist' });
@@ -91,6 +98,32 @@ export const getProducts = async (
   }
 
   // return response.json({ message: 'Hello from GADGET STORE!' });
+};
+
+export const getSingleProduct = async (
+  request: express.Request,
+  response: express.Response
+) => {
+  const { id } = request.params;
+
+  if (!mongoose.isValidObjectId(id)) {
+    return response.status(400).json({ error: 'Invalid Product ID' });
+  }
+
+  try {
+    const product = await Product.findById(id).populate('category');
+
+    if (!product) {
+      return response
+        .status(404)
+        .json({ error: 'Product with the supplied ID does not exist' });
+    }
+
+    return response.status(200).json(product);
+  } catch (error: any) {
+    console.log('[PRODUCT_FETCH_ERROR]', error);
+    return response.status(500).json({ error: 'Internal Server Error' });
+  }
 };
 
 export const addProduct = async (

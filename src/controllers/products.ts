@@ -5,9 +5,10 @@ import Category from '../models/category';
 import mongoose from 'mongoose';
 import { json } from 'body-parser';
 import { ObjectId } from 'mongodb';
-import { paginateQuery } from '../lib/helpers';
+import { getImageName, paginateQuery } from '../lib/helpers';
 import upload from '../config/multer';
 import { port } from '../index';
+import fs from 'fs';
 
 interface GetQueryParams {
   // product_name?: string;
@@ -118,6 +119,7 @@ export const addProduct = async (
 
   // });
 
+  // UPLOAD.FIELD() TAKES AN ARRAY OF FILE FIELDS AND ADDS AN OBJECT CONTAINING EACH, WITH THE NAME AS THE KEY, AND AN ARRAY OF THE FILES FROM SUCH FIELD AS THE VALUE TO THE REQUEST.FILES OBJECT
   upload.fields([
     { name: 'main_image', maxCount: 1 },
     { name: 'other_images' },
@@ -280,136 +282,164 @@ export const updateProduct = async (
   request: express.Request,
   response: express.Response
 ) => {
-  const { id } = request.params;
-  const {
-    product_name,
-    brand,
-    description,
-    price,
-    category,
-    main_image,
-    other_images,
-    count_in_stock,
-  } = request.body;
-
-  // REDUNDANT***************
-  // if (!id) {
-  //   return response
-  //     .status(400)
-  //     .json({ error: 'Please enter the ID if the document to be updated.' });
-  // }
-
-  if (!mongoose.isValidObjectId(id)) {
-    return response.status(400).json({ error: 'Invalid Product ID' });
-  }
-
-  // CHECK IF PRODUCT EXISTS
-  try {
-    const product = await Product.findById(id);
-
-    if (!product) {
-      return response
-        .status(404)
-        .json({ error: 'Product with the supplied ID does not exist.' });
-    }
-
+  upload.fields([
+    { name: 'main_image', maxCount: 1 },
+    { name: 'other_images' },
+  ])(request, response, async (error: any) => {
     if (
-      !product_name &&
-      !brand &&
-      !description &&
-      !price &&
-      !category &&
-      !main_image &&
-      !other_images &&
-      !count_in_stock
+      error?.code === 'LIMIT_FILE_COUNT' ||
+      error?.code === 'LIMIT_UNEXPECTED_FILE'
     ) {
       return response.status(400).json({
-        error: 'No field to be edited was supplied',
+        error: 'Main image should be a single file',
+        errorCode: error?.code,
       });
     }
 
-    // BUILD UPDATES BASED ON BODY DATA
-    const updates: Updates = {};
-
-    if (product_name) {
-      updates.product_name = product_name;
+    if (error) {
+      return response.status(500).json({ error: error.message });
     }
 
-    if (brand) {
-      updates.brand = brand;
+    const { id } = request.params;
+    const {
+      product_name,
+      brand,
+      description,
+      price,
+      category,
+      main_image,
+      other_images,
+      count_in_stock,
+    } = request.body;
+
+    if (!mongoose.isValidObjectId(id)) {
+      return response.status(400).json({ error: 'Invalid Product ID' });
     }
 
-    if (description) {
-      updates.description = description;
-    }
+    // CHECK IF PRODUCT EXISTS
+    try {
+      const product = await Product.findById(id);
 
-    if (price) {
-      // CHECK IF PRICE IS A NUMBER
-      if (isNaN(price)) {
-        return response.status(400).json({ error: 'Price should be a number' });
-      } else {
-        updates.price = +price;
-      }
-    }
-
-    if (count_in_stock) {
-      // CHECK IF COUNT IN STOCK IS A NUMBER
-      if (isNaN(count_in_stock)) {
+      if (!product) {
         return response
-          .status(400)
-          .json({ error: 'Count in stock should be a number' });
-      } else {
-        updates.count_in_stock = +count_in_stock;
-      }
-    }
-
-    // *******************
-    // MAIN IMAGE
-    // OTHER IMAGES
-    // *******************
-
-    if (category) {
-      // CHECK IF CATEGORY ID IS VALID
-      if (!mongoose.isValidObjectId(category)) {
-        return response.status(400).json({ error: 'Invalid Category ID' });
+          .status(404)
+          .json({ error: 'Product with the supplied ID does not exist.' });
       }
 
-      // CHECK IF CATEGORY EXISTS
-      try {
-        const categoryExists = await Category.findById(category);
+      if (
+        !product_name &&
+        !brand &&
+        !description &&
+        !price &&
+        !category &&
+        !count_in_stock &&
+        // !main_image &&
+        // !other_images &&
+        // @ts-ignore
+        !request.files?.main_image &&
+        // @ts-ignore
+        !request.files?.other_images
+      ) {
+        return response.status(400).json({
+          error: 'No field to be edited was supplied',
+        });
+      }
 
-        if (!categoryExists) {
+      // BUILD UPDATES BASED ON BODY DATA
+      const updates: Updates = {};
+
+      if (product_name) {
+        updates.product_name = product_name;
+      }
+
+      if (brand) {
+        updates.brand = brand;
+      }
+
+      if (description) {
+        updates.description = description;
+      }
+
+      if (price) {
+        // CHECK IF PRICE IS A NUMBER
+        if (isNaN(price)) {
           return response
-            .status(404)
-            .json({ error: 'Category with the provided ID does not exist.' });
+            .status(400)
+            .json({ error: 'Price should be a number' });
+        } else {
+          updates.price = +price;
+        }
+      }
+
+      if (count_in_stock) {
+        // CHECK IF COUNT IN STOCK IS A NUMBER
+        if (isNaN(count_in_stock)) {
+          return response
+            .status(400)
+            .json({ error: 'Count in stock should be a number' });
+        } else {
+          updates.count_in_stock = +count_in_stock;
+        }
+      }
+
+      // @ts-ignore
+      if (request.files?.main_image) {
+        // @ts-ignore
+        const mainImage = request.files?.main_image[0];
+        updates.main_image = `http://localhost:5000/public/assets/${mainImage?.filename}`;
+      }
+      // @ts-ignore
+      if (request.files?.other_images) {
+        // @ts-ignore
+        const otherImages = request.files?.other_images.map((file) => {
+          return `http://localhost:5000/public/assets/${file?.filename}`;
+        });
+        updates.other_images = otherImages;
+      }
+
+      if (category) {
+        // CHECK IF CATEGORY ID IS VALID
+        if (!mongoose.isValidObjectId(category)) {
+          return response.status(400).json({ error: 'Invalid Category ID' });
         }
 
-        updates.category = category;
+        // CHECK IF CATEGORY EXISTS
+        try {
+          const categoryExists = await Category.findById(category);
+
+          if (!categoryExists) {
+            return response.status(404).json({
+              error: 'Category with the provided ID does not exist.',
+            });
+          }
+
+          updates.category = category;
+        } catch (error: any) {
+          console.log('[CATEGORY_FETCH_ERROR]', error);
+          return response.status(500).json({ error: 'Internal Server Error' });
+        }
+      }
+
+      try {
+        console.log(updates);
+        const updatedProduct = await Product.findByIdAndUpdate(id, updates, {
+          new: true,
+        });
+
+        // if (!updatedProduct) {
+        //   return response.status(404).json({ error: 'Could not find the corresponding document.'})
+        // }
+
+        return response.status(200).json(updatedProduct);
       } catch (error: any) {
-        console.log('[CATEGORY_FETCH_ERROR]', error);
+        console.log('[PRODUCT_UPDATE_ERROR]', error);
         return response.status(500).json({ error: 'Internal Server Error' });
       }
-    }
-
-    try {
-      console.log(updates);
-      const updatedProduct = await Product.findByIdAndUpdate(id, updates, {
-        new: true,
-      });
-
-      // if (!updatedProduct) {
-      //   return response.status(404).json({ error: 'Could not find the corresponding document.'})
-      // }
-
-      return response.status(200).json(updatedProduct);
     } catch (error: any) {
-      console.log('[PRODUCT_UPDATE_ERROR]', error);
+      console.log('[PRODUCT_FETCH_ERROR]', error);
       return response.status(500).json({ error: 'Internal Server Error' });
     }
-  } catch (error: any) {
-    console.log('[PRODUCT_FETCH_ERROR]', error);
-    return response.status(500).json({ error: 'Internal Server Error' });
-  }
+  });
 };
 
 export const deleteProduct = async (
@@ -433,9 +463,42 @@ export const deleteProduct = async (
 
     try {
       await Product.findByIdAndDelete(id);
-      return response
-        .status(200)
-        .json({ message: 'Product deleted successfully' });
+
+      try {
+        const imageUrls = [
+          productExists.main_image,
+          ...productExists.other_images,
+        ];
+
+        const filePaths = imageUrls.map(
+          (filePath) => `src/assets/${getImageName(filePath)}`
+        );
+
+        const promises = filePaths.map((filePath) => {
+          return new Promise((resolve, reject) => {
+            fs.unlink(filePath, (error) => {
+              if (error) {
+                reject(error);
+              } else {
+                resolve('');
+              }
+            });
+          });
+        });
+
+        await Promise.all(promises);
+
+        return response
+          .status(200)
+          .json({ message: 'Product deleted successfully' });
+      } catch (error: any) {
+        console.log('[FILE_DELETION_ERROR]', error);
+        response.status(500).json({ error: 'Error deleting files' });
+      }
+
+      // return response
+      //   .status(200)
+      //   .json({ message: 'Product deleted successfully' });
     } catch (error: any) {
       console.log('[PRODUCT_DELETION_ERROR]', error);
     }

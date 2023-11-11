@@ -39,3 +39,11 @@ export const paginateQuery = async (
     return response.status(500).json({ error: 'Internal Server Error' });
   }
 };
+
+export const getImageName = (absoluteUrl: string) => {
+  const imageName = absoluteUrl
+    .substring(absoluteUrl.lastIndexOf('/'))
+    .slice(1);
+
+  return imageName;
+};

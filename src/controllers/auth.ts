@@ -7,22 +7,11 @@ import Otp from '../models/otp';
 import { generateToken, verifyToken } from '../lib/helpers/token';
 import sendEmail from '../lib/helpers/sendEmail';
 
-interface UserTypes {
-  _id: string;
-  first_name: string;
-  last_name: string;
-  email: string;
-  password: string;
-  auth_type: 'MANUAL' | 'GOOGLE';
-}
-
 export const registerUser = async (
   request: express.Request,
   response: express.Response
 ) => {
   const { first_name, last_name, email, password } = request.body;
-
-  console.log(request.body);
 
   if (!first_name || !last_name || !email || !password) {
     return response
@@ -63,7 +52,7 @@ export const registerUser = async (
           const info = await sendEmail({
             receipent: email,
             subject: 'Email Verification',
-            html: '',
+            html: `<p>Your OTP is ${otp}</p>`,
           });
           console.log('Mail sent!', info.messageId);
           return response
@@ -264,64 +253,3 @@ export const resetOtp = async (
     return response.status(500).json({ error: 'Internal Server Error' });
   }
 };
-
-export const getUser = async (
-  request: express.Request,
-  response: express.Response
-) => {
-  // const { token } = request.cookies;
-  const token = request.cookies.token;
-  // console.log(request.cookies);
-
-  if (!token) {
-    return response.status(401).json({ error: 'Not authorized, no token' });
-  }
-
-  // const decoded = jwt.verify(token, process.env.JWT_SECRET!);
-
-  // if (!decoded) {
-  //   return response.status(401).json({ error: 'Not authorized' });
-  // }
-
-  try {
-    const decoded = await verifyToken(token);
-
-    if (!decoded) {
-      return response.status(401).json({ error: 'Not authorized' });
-    }
-  } catch (error: any) {
-    console.log('[TOKEN_VERIFICATION_ERROR]', error);
-    return response.status(500).json({ error: 'Internal Server Error' });
-  }
-
-  try {
-    // @ts-ignore
-    const user = await User.findById(decoded?.data);
-
-    if (!user) {
-      return response.status(404).json({ error: 'User not found' });
-    }
-
-    return response.status(200).json({
-      id: user._id,
-      first_name: user.first_name,
-      last_name: user.last_name,
-      email: user.email,
-      verified: user.verified,
-    });
-  } catch (error: any) {
-    console.log('[USER_FETCH_ERROR]', error);
-    return response.status(500).json({ error: 'Internal Server Error' });
-  }
-};
-
-// export const updateUser = async (
-//   request: express.Request,
-//   response: express.Response
-// ) => {
-//   // const { token } = request.cookies
-//   const token = request.cookies.token;
-
-//   if (!token) {
-//   }
-// };

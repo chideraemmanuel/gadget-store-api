@@ -1,7 +1,7 @@
 import jwt, { TokenExpiredError } from 'jsonwebtoken';
 
 export const generateToken = (data: any) => {
-  const token = jwt.sign(data, process.env.JWT_SECRET!);
+  const token = jwt.sign({ data }, process.env.JWT_SECRET!);
 
   return token;
 };
@@ -20,3 +20,19 @@ export const generateToken = (data: any) => {
 
 //   return { decoded, error }
 // }
+
+export const verifyToken = async (token: string) => {
+  return new Promise<{ data: string }>((resolve, reject) => {
+    jwt.verify(token, process.env.JWT_SECRET!, (error, decoded) => {
+      if (error instanceof TokenExpiredError) {
+        reject({ error: 'Token has expired', stack: error });
+      }
+      if (error) {
+        reject(error);
+      }
+
+      // @ts-ignore
+      resolve(decoded);
+    });
+  });
+};

@@ -4,7 +4,8 @@ import User from '../models/user';
 import { compareHash, hashData } from '../lib/helpers/hash';
 import generateOtp from '../lib/helpers/generateOtp';
 import Otp from '../models/otp';
-import { generateToken } from '../lib/helpers/token';
+import { generateToken, verifyToken } from '../lib/helpers/token';
+import sendEmail from '../lib/helpers/sendEmail';
 
 interface UserTypes {
   _id: string;
@@ -16,10 +17,12 @@ interface UserTypes {
 }
 
 export const registerUser = async (
-  requset: express.Request,
+  request: express.Request,
   response: express.Response
 ) => {
-  const { first_name, last_name, email, password } = requset.body;
+  const { first_name, last_name, email, password } = request.body;
+
+  console.log(request.body);
 
   if (!first_name || !last_name || !email || !password) {
     return response
@@ -56,12 +59,21 @@ export const registerUser = async (
           expiresAt: Date.now() + 3600000,
         });
 
-        // TODO: send email with nodemailer
-
-        return response
-          .status(201)
-          .cookie('token', token)
-          .json({ message: `OTP has been sent to ${email}` });
+        try {
+          const info = await sendEmail({
+            receipent: email,
+            subject: 'Email Verification',
+            html: '',
+          });
+          console.log('Mail sent!', info.messageId);
+          return response
+            .status(201)
+            .cookie('token', token)
+            .json({ message: `OTP has been sent to ${email}` });
+        } catch (error: any) {
+          console.log('[EMAIL_SENDING_ERROR]', error);
+          return response.status(500).json({ error: 'Internal Server Error' });
+        }
       } catch (error: any) {
         console.log('[OTP_RECORD_CREATION_ERROR]', error);
         return response.status(500).json({ message: 'Internal Server Error' });
@@ -77,10 +89,10 @@ export const registerUser = async (
 };
 
 export const loginUser = async (
-  requset: express.Request,
+  request: express.Request,
   response: express.Response
 ) => {
-  const { email, password } = requset.body;
+  const { email, password } = request.body;
 
   if (!email || !password) {
     return response
@@ -126,10 +138,10 @@ export const loginUser = async (
 };
 
 export const verifyUser = async (
-  requset: express.Request,
+  request: express.Request,
   response: express.Response
 ) => {
-  const { email, otp } = requset.body;
+  const { email, otp } = request.body;
 
   if (!email || !otp) {
     return response
@@ -225,11 +237,20 @@ export const resetOtp = async (
           expiresAt: Date.now() + 3600000,
         });
 
-        // TODO: resend otp logic
-
-        return response
-          .status(201)
-          .json({ message: `OTP has been resent to ${email}` });
+        try {
+          const info = await sendEmail({
+            receipent: email,
+            subject: 'Email Verification',
+            html: '',
+          });
+          console.log('Mail sent!', info.messageId);
+          return response
+            .status(201)
+            .json({ message: `OTP has been resent to ${email}` });
+        } catch (error: any) {
+          console.log('[EMAIL_SENDING_ERROR]', error);
+          return response.status(500).json({ error: 'Internal Server Error' });
+        }
       } catch (error: any) {
         console.log('[OTP_RECORD_CREATION_ERROR]', error);
         return response.status(500).json({ error: 'Internal Server Error' });
@@ -248,21 +269,34 @@ export const getUser = async (
   request: express.Request,
   response: express.Response
 ) => {
-  const { token } = request.cookies;
+  // const { token } = request.cookies;
+  const token = request.cookies.token;
+  // console.log(request.cookies);
 
   if (!token) {
     return response.status(401).json({ error: 'Not authorized, no token' });
   }
 
-  const decoded = jwt.verify(token, process.env.JWT_SECRET!);
+  // const decoded = jwt.verify(token, process.env.JWT_SECRET!);
 
-  if (!decoded) {
-    return response.status(401).json({ error: 'Not authorized' });
+  // if (!decoded) {
+  //   return response.status(401).json({ error: 'Not authorized' });
+  // }
+
+  try {
+    const decoded = await verifyToken(token);
+
+    if (!decoded) {
+      return response.status(401).json({ error: 'Not authorized' });
+    }
+  } catch (error: any) {
+    console.log('[TOKEN_VERIFICATION_ERROR]', error);
+    return response.status(500).json({ error: 'Internal Server Error' });
   }
 
   try {
     // @ts-ignore
-    const user = await User.findById(decoded?.id);
+    const user = await User.findById(decoded?.data);
 
     if (!user) {
       return response.status(404).json({ error: 'User not found' });
@@ -280,3 +314,14 @@ export const getUser = async (
     return response.status(500).json({ error: 'Internal Server Error' });
   }
 };
+
+// export const updateUser = async (
+//   request: express.Request,
+//   response: express.Response
+// ) => {
+//   // const { token } = request.cookies
+//   const token = request.cookies.token;
+
+//   if (!token) {
+//   }
+// };

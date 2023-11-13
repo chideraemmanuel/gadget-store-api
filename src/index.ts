@@ -1,11 +1,14 @@
 import express from 'express';
+import morgan from 'morgan';
 import dotenv from 'dotenv';
+import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import mongoose from 'mongoose';
 import productsRouter from './routes/products';
 import categoriesRouter from './routes/categories';
 import usersRouter from './routes/users';
 import authRouter from './routes/auth';
+import transporter from './config/nodemailer';
 
 dotenv.config();
 const app = express();
@@ -19,6 +22,11 @@ app.use(express.urlencoded({ extended: false }));
 // ENABLE CORS
 app.use(cors());
 
+// ENABLE COOKIE PARSER
+app.use(cookieParser());
+
+app.use(morgan('tiny'));
+
 app.use('/public/assets/', express.static('src/assets'));
 
 app.use(
@@ -28,18 +36,28 @@ app.use(
     res: express.Response,
     next: express.NextFunction
   ) => {
-    res.status(500).json({ error: error.message, stack: error.stack });
+    if (error) {
+      return res.status(500).json({ error: error.message, stack: error.stack });
+    }
   }
 );
+
+// transporter.verify((error, success) => {
+//   if (error) {
+//     console.log('error configuring nodemailer', error);
+//   } else {
+//     console.log('succesfully configured nodemailer', success);
+//   }
+// });
 
 // CONNECT TO DATABASE
 mongoose
   .connect(process.env.MONGODB_URI!)
   .then(() => {
     console.log('Connected to database');
-    // app.listen(port, () => {
-    //   console.log(`Server started on http://localhost:${port}`);
-    // });
+    app.listen(port, () => {
+      console.log(`Server started on http://localhost:${port}`);
+    });
   })
   .catch((error) => console.log('[DATABASE_CONNECTION_ERROR]', error));
 
@@ -48,6 +66,6 @@ app.use('/api/v1/categories', categoriesRouter);
 app.use('/api/v1/users', usersRouter);
 app.use('/api/v1/auth', authRouter);
 
-app.listen(port, () => {
-  console.log(`Server started on http://localhost:${port}`);
-});
+// app.listen(port, () => {
+//   console.log(`Server started on http://localhost:${port}`);
+// });

@@ -1,5 +1,6 @@
 import express from 'express';
 import {
+  getUser,
   loginUser,
   registerUser,
   resetOtp,
@@ -12,6 +13,6 @@ router.post('/register', registerUser);
 router.post('/login', loginUser);
 router.post('/verify', verifyUser);
 router.post('/otp/resend', resetOtp);
-router.get('/user', resetOtp);
+router.get('/user', getUser);
 
 export default router;

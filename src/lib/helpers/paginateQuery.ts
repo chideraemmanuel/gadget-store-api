@@ -16,7 +16,7 @@ import express from 'express';
 //     res.json(data);
 //   });
 
-export const paginateQuery = async (
+const paginateQuery = async (
   model: mongoose.Model<any>,
   response: express.Response,
   filter?: any,
@@ -40,10 +40,4 @@ export const paginateQuery = async (
   }
 };
 
-export const getImageName = (absoluteUrl: string) => {
-  const imageName = absoluteUrl
-    .substring(absoluteUrl.lastIndexOf('/'))
-    .slice(1);
-
-  return imageName;
-};
+export default paginateQuery;

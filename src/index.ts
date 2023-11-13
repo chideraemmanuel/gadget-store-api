@@ -3,7 +3,9 @@ import dotenv from 'dotenv';
 import cors from 'cors';
 import mongoose from 'mongoose';
 import productsRouter from './routes/products';
-import categoryRouter from './routes/categories';
+import categoriesRouter from './routes/categories';
+import usersRouter from './routes/users';
+import authRouter from './routes/auth';
 
 dotenv.config();
 const app = express();
@@ -42,7 +44,9 @@ mongoose
   .catch((error) => console.log('[DATABASE_CONNECTION_ERROR]', error));
 
 app.use('/api/v1/products', productsRouter);
-app.use('/api/v1/categories', categoryRouter);
+app.use('/api/v1/categories', categoriesRouter);
+app.use('/api/v1/users', usersRouter);
+app.use('/api/v1/auth', authRouter);
 
 app.listen(port, () => {
   console.log(`Server started on http://localhost:${port}`);

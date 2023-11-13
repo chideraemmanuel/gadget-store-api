@@ -5,10 +5,11 @@ import Category from '../models/category';
 import mongoose from 'mongoose';
 import { json } from 'body-parser';
 import { ObjectId } from 'mongodb';
-import { getImageName, paginateQuery } from '../lib/helpers';
 import upload from '../config/multer';
 import { port } from '../index';
 import fs from 'fs';
+import paginateQuery from '../lib/helpers/paginateQuery';
+import getImageName from '../lib/helpers/getImageName';
 
 interface GetQueryParams {
   // product_name?: string;

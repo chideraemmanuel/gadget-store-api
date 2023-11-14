@@ -1,6 +1,7 @@
 import express from 'express';
 import {
   addToCart,
+  clearCart,
   decrementItem,
   getUserCart,
   incrementItem,
@@ -10,9 +11,10 @@ import {
 const router = express.Router();
 
 router.get('/', getUserCart);
-router.post('/', addToCart);
-router.delete('/', removeFromCart);
+router.put('/add', addToCart);
+router.put('/remove', removeFromCart);
 router.put('/increment', incrementItem);
 router.put('/decrement', decrementItem);
+router.put('/clear', clearCart);
 
 export default router;

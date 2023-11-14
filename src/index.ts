@@ -8,6 +8,7 @@ import productsRouter from './routes/products';
 import categoriesRouter from './routes/categories';
 import usersRouter from './routes/users';
 import userRouter from './routes/user';
+import cartRouter from './routes/cart';
 import authRouter from './routes/auth';
 import transporter from './config/nodemailer';
 import authMiddleware from './middlewares/auth';
@@ -67,6 +68,7 @@ app.use('/api/v1/products', productsRouter);
 app.use('/api/v1/categories', categoriesRouter);
 app.use('/api/v1/users', usersRouter);
 app.use('/api/v1/user', authMiddleware, userRouter);
+app.use('/api/v1/cart', authMiddleware, cartRouter);
 app.use('/api/v1/auth', authRouter);
 
 // app.listen(port, () => {

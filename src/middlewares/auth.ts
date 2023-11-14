@@ -2,7 +2,7 @@ import express, { NextFunction } from 'express';
 import { verifyToken } from '../lib/helpers/token';
 import User from '../models/user';
 
-const authMiddleware = async (
+export const authenticate = async (
   request: express.Request,
   response: express.Response,
   next: NextFunction
@@ -37,4 +37,38 @@ const authMiddleware = async (
   }
 };
 
-export default authMiddleware;
+export const verify = async (
+  request: express.Request,
+  response: express.Response,
+  next: NextFunction
+) => {
+  // @ts-ignore
+  const user = request.user;
+
+  if (!user?.verified) {
+    return response.status(401).json({ error: 'User not verified' });
+  }
+
+  next();
+};
+
+export const authorize = (
+  request: express.Request,
+  response: express.Response,
+  next: NextFunction
+) => {
+  // @ts-ignore
+  const user = request.user;
+
+  if (!user) {
+    return response.status(401).json({ error: 'Not authenticated' });
+  }
+
+  if (user?.role !== 'admin') {
+    return response
+      .status(403)
+      .json({ error: 'Forbidden - Admin access required' });
+  }
+
+  next();
+};

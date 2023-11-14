@@ -3,6 +3,9 @@ import Cart from '../models/cart';
 import mongoose from 'mongoose';
 import Product from '../models/product';
 
+// @desc  Get logged in user's cart items
+// @route  GET /cart
+// @access  Private
 export const getUserCart = async (
   request: express.Request,
   response: express.Response

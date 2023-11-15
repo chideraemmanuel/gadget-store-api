@@ -12,9 +12,13 @@ export const getUserCart = async (
 ) => {
   // @ts-ignore
   const user = request.user;
+  const { populate } = request.query;
 
   try {
-    const cart = await Cart.findOne({ user: user._id }).populate('user');
+    const cart =
+      populate === 'true'
+        ? await Cart.findOne({ user: user._id }).populate('*')
+        : await Cart.findOne({ user: user._id });
 
     if (!cart) {
       try {
@@ -24,9 +28,10 @@ export const getUserCart = async (
         });
 
         try {
-          const newPopulatedCart = await Cart.findOne({
-            user: user._id,
-          }).populate('user');
+          const newPopulatedCart =
+            populate === 'true'
+              ? await Cart.findOne({ user: user._id }).populate('*')
+              : await Cart.findOne({ user: user._id });
 
           return response.status(201).json(newPopulatedCart);
         } catch (error: any) {

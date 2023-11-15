@@ -12,7 +12,7 @@ import paginateQuery from '../lib/helpers/paginateQuery';
 import getImageName from '../lib/helpers/getImageName';
 
 interface GetQueryParams {
-  // product_name?: string;
+  product_name?: any;
   // brand?: string;
   brand?: any;
   price?: {
@@ -20,6 +20,7 @@ interface GetQueryParams {
     $lte: number;
   };
   category?: ObjectId;
+  featured?: 'true' | 'false';
 }
 
 export const getProducts = async (
@@ -28,7 +29,16 @@ export const getProducts = async (
 ) => {
   // const queryParams = request.query;
 
-  const { brand, price_range, category, page, limit } = request.query;
+  const {
+    search_query,
+    brand,
+    price_range,
+    category,
+    featured,
+    page,
+    limit,
+    populate,
+  } = request.query;
   // console.log(product_name, brand, price_range, category);
 
   if (page && isNaN(page as any)) {
@@ -42,9 +52,10 @@ export const getProducts = async (
   // Build the filter object based on query parameters
   const filter: GetQueryParams = {};
 
-  // if (q) {
-  //   filter.product_name = q.toString();
-  // }
+  if (search_query) {
+    // filter.product_name = search_query.toString();
+    filter.product_name = { $regex: search_query as string, $options: 'i' };
+  }
 
   if (category) {
     const isValidId = mongoose.isValidObjectId(category);
@@ -78,19 +89,48 @@ export const getProducts = async (
     filter.price = { $gte: minPrice, $lte: maxPrice };
   }
 
+  if (featured) {
+    if (featured !== 'true' && featured !== 'false') {
+      return response
+        .status(400)
+        .json({ error: 'Featured must be a boolean value' });
+    }
+
+    filter.featured = featured;
+  }
+
+  // if (featured) {
+  //   if (featured !== true && featured !== false) {
+  //   return response
+  //     .status(400)
+  //     .json({ error: 'Featured must be a boolean value' });
+  //   }
+
+  //   filter.featured = featured;
+  // }
+
+  // if (populate) {
+  //   if (populate !== 'true' && populate !== 'false') {
+  //     return response
+  //       .status(400)
+  //       .json({ error: 'Populate shoule be set to either true or false' });
+  //   }
+  // }
+
   console.log(filter);
 
   try {
     // const products = await Product.find(filter).populate('category');
     // response.status(200).json(products);
 
-    const paginationResponse = await paginateQuery(
-      Product,
+    const paginationResponse = await paginateQuery({
+      model: Product,
       response,
       filter,
-      parseInt(page as string),
-      parseInt(limit as string)
-    );
+      populate: populate === 'true' ? true : undefined,
+      page: parseInt(page as string),
+      limit: parseInt(limit as string),
+    });
 
     return paginationResponse;
   } catch (error: any) {
@@ -189,6 +229,7 @@ export const addProduct = async (
       main_image,
       other_images,
       count_in_stock,
+      featured,
     } = product;
 
     // console.log('req file', request.file);
@@ -211,6 +252,7 @@ export const addProduct = async (
       !price ||
       !category ||
       !count_in_stock ||
+      !featured ||
       // !main_image ||
       // !other_images ||
       !mainImage ||
@@ -220,6 +262,13 @@ export const addProduct = async (
         error: 'Please supply the required product fields.',
       });
     }
+
+    // CHECK IF FEATURED IS A BOOLEAN
+    // if (typeof featured !== 'boolean') {
+    //   return response
+    //     .status(400)
+    //     .json({ error: 'Featured should be a boolean value' });
+    // }
 
     // CHECK IF PRICE IS A NUMBER
     if (isNaN(price)) {
@@ -265,6 +314,7 @@ export const addProduct = async (
         main_image: `http://localhost:5000/public/assets/${mainImage?.filename}`,
         other_images: otherImages,
         count_in_stock: count_in_stock as number,
+        featured,
       });
       return response.status(201).json(addedProduct);
     } catch (error: any) {

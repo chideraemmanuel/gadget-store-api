@@ -16,22 +16,40 @@ import express from 'express';
 //     res.json(data);
 //   });
 
-const paginateQuery = async (
-  model: mongoose.Model<any>,
-  response: express.Response,
-  filter?: any,
-  page?: number,
-  limit?: number
-) => {
+interface Params {
+  model: mongoose.Model<any>;
+  response: express.Response;
+  filter?: any;
+  // populate?: string | string[] | null;
+  populate?: boolean;
+  page?: number;
+  limit?: number;
+}
+
+const paginateQuery = async ({
+  model,
+  response,
+  filter,
+  populate,
+  page,
+  limit,
+}: Params) => {
   const pageNumber = page || 1;
   const limitNumber = limit || 10;
 
   try {
-    const data = await model
-      .find(filter)
-      .skip((pageNumber - 1) * limitNumber)
-      .limit(limitNumber)
-      .exec();
+    const data = populate
+      ? await model
+          .find(filter)
+          .populate('*')
+          .skip((pageNumber - 1) * limitNumber)
+          .limit(limitNumber)
+          .exec()
+      : await model
+          .find(filter)
+          .skip((pageNumber - 1) * limitNumber)
+          .limit(limitNumber)
+          .exec();
 
     return response.status(200).json(data);
   } catch (error: any) {

@@ -49,16 +49,26 @@ export const registerUser = async (
         });
 
         try {
-          const info = await sendEmail({
-            receipent: email,
-            subject: 'Email Verification',
-            html: `<p>Your OTP is ${otp}</p>`,
-          });
-          console.log('Mail sent!', info.messageId);
+          // const info = await sendEmail({
+          //   receipent: email,
+          //   subject: 'Email Verification',
+          //   html: `<p>Your OTP is ${otp}</p>`,
+          // });
+          // console.log('Mail sent!', info.messageId);
           return response
             .status(201)
             .cookie('token', token)
-            .json({ message: `OTP has been sent to ${email}` });
+            .json({
+              user: {
+                id: createdUser._id,
+                first_name: createdUser.first_name,
+                last_name: createdUser.last_name,
+                email: createdUser.email,
+                verified: createdUser.verified,
+                user: createdUser.role,
+              },
+              message: `OTP has been sent to ${email}`,
+            });
         } catch (error: any) {
           console.log('[EMAIL_SENDING_ERROR]', error);
           return response.status(500).json({ error: 'Internal Server Error' });
@@ -119,11 +129,22 @@ export const loginUser = async (
       last_name: userExists.last_name,
       email: userExists.email,
       verified: userExists.verified,
+      user: userExists.role,
     });
   } catch (error: any) {
     console.log('[USER_FETCH_ERROR]', error);
     return response.status(500).json({ error: 'Internal Server Error' });
   }
+};
+
+export const logoutUser = async (
+  request: express.Request,
+  response: express.Response
+) => {
+  return response
+    .status(200)
+    .cookie('token', '', { maxAge: 1 })
+    .json({ message: 'Logout successful' });
 };
 
 export const verifyUser = async (
@@ -248,6 +269,62 @@ export const resetOtp = async (
       console.log('[OTP_RECORD_DELETION_ERROR]', error);
       return response.status(500).json({ error: 'Internal Server Error' });
     }
+  } catch (error: any) {
+    console.log('[USER_FETCH_ERROR]', error);
+    return response.status(500).json({ error: 'Internal Server Error' });
+  }
+};
+
+export const loginAdmin = async (
+  request: express.Request,
+  response: express.Response
+) => {
+  const { email, password } = request.body;
+
+  if (!email || !password) {
+    return response
+      .status(400)
+      .json({ error: 'Please supply the required credentials' });
+  }
+
+  try {
+    const userExists = await User.findOne({ email });
+
+    if (!userExists) {
+      return response
+        .status(404)
+        .json({ error: 'No user with the supplied email' });
+    }
+
+    if (userExists?.role !== 'admin') {
+      return response
+        .status(403)
+        .json({ error: 'Forbidden - Admin access required' });
+    }
+
+    if (userExists?.auth_type === 'GOOGLE') {
+      return response.status(400).json({
+        error:
+          'Account already verified with Google. Sign in with Google instead.',
+      });
+    }
+
+    const passwordMatches = await compareHash(password, userExists.password!);
+
+    if (!passwordMatches) {
+      return response.status(401).json({ error: 'Incorrect password' });
+    }
+
+    const adminToken = generateToken(userExists._id);
+
+    return response.status(200).cookie('admin_token', adminToken).json({
+      id: userExists._id,
+      first_name: userExists.first_name,
+      last_name: userExists.last_name,
+      email: userExists.email,
+      verified: userExists.verified,
+      user: userExists.role,
+    });
   } catch (error: any) {
     console.log('[USER_FETCH_ERROR]', error);
     return response.status(500).json({ error: 'Internal Server Error' });

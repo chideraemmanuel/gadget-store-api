@@ -29,16 +29,8 @@ export const getProducts = async (
 ) => {
   // const queryParams = request.query;
 
-  const {
-    search_query,
-    brand,
-    price_range,
-    category,
-    featured,
-    page,
-    limit,
-    populate,
-  } = request.query;
+  const { search_query, brand, price_range, category, featured, page, limit } =
+    request.query;
   // console.log(product_name, brand, price_range, category);
 
   if (page && isNaN(page as any)) {
@@ -127,7 +119,6 @@ export const getProducts = async (
       model: Product,
       response,
       filter,
-      populate: populate === 'true' ? true : undefined,
       page: parseInt(page as string),
       limit: parseInt(limit as string),
     });

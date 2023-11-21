@@ -7,6 +7,7 @@ import mongoose from 'mongoose';
 import productsRouter from './routes/products';
 import categoriesRouter from './routes/categories';
 import usersRouter from './routes/users';
+import ordersRouter from './routes/orders';
 import userRouter from './routes/user';
 import cartRouter from './routes/cart';
 import authRouter from './routes/auth';
@@ -66,7 +67,8 @@ mongoose
 
 app.use('/api/v1/products', productsRouter);
 app.use('/api/v1/categories', categoriesRouter);
-app.use('/api/v1/users', usersRouter);
+app.use('/api/v1/users', authenticate, authorize, usersRouter);
+app.use('/api/v1/orders', authenticate, authorize, ordersRouter);
 app.use('/api/v1/user', authenticate, userRouter);
 app.use('/api/v1/cart', authenticate, verify, cartRouter);
 app.use('/api/v1/auth', authRouter);

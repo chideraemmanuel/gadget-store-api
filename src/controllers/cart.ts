@@ -17,7 +17,7 @@ export const getUserCart = async (
   try {
     const cart =
       populate === 'true'
-        ? await Cart.findOne({ user: user._id }).populate('*')
+        ? await Cart.findOne({ user: user._id })
         : await Cart.findOne({ user: user._id });
 
     if (!cart) {
@@ -30,7 +30,7 @@ export const getUserCart = async (
         try {
           const newPopulatedCart =
             populate === 'true'
-              ? await Cart.findOne({ user: user._id }).populate('*')
+              ? await Cart.findOne({ user: user._id })
               : await Cart.findOne({ user: user._id });
 
           return response.status(201).json(newPopulatedCart);

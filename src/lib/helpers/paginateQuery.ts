@@ -20,8 +20,6 @@ interface Params {
   model: mongoose.Model<any>;
   response: express.Response;
   filter?: any;
-  // populate?: string | string[] | null;
-  populate?: boolean;
   page?: number;
   limit?: number;
 }
@@ -30,7 +28,6 @@ const paginateQuery = async ({
   model,
   response,
   filter,
-  populate,
   page,
   limit,
 }: Params) => {
@@ -38,18 +35,11 @@ const paginateQuery = async ({
   const limitNumber = limit || 10;
 
   try {
-    const data = populate
-      ? await model
-          .find(filter)
-          .populate('*')
-          .skip((pageNumber - 1) * limitNumber)
-          .limit(limitNumber)
-          .exec()
-      : await model
-          .find(filter)
-          .skip((pageNumber - 1) * limitNumber)
-          .limit(limitNumber)
-          .exec();
+    const data = await model
+      .find(filter)
+      .skip((pageNumber - 1) * limitNumber)
+      .limit(limitNumber)
+      .exec();
 
     return response.status(200).json(data);
   } catch (error: any) {

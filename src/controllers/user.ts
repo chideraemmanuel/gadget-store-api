@@ -1,6 +1,8 @@
 import express from 'express';
 import { verifyToken } from '../lib/helpers/token';
 import User from '../models/user';
+import Order from '../models/order';
+import paginateQuery from '../lib/helpers/paginateQuery';
 
 export const getUser = async (
   request: express.Request,
@@ -18,41 +20,6 @@ export const getUser = async (
     email: user.email,
     verified: user.verified,
   });
-
-  //   if (!token) {
-  //     return response.status(401).json({ error: 'Not authorized, no token' });
-  //   }
-
-  //   try {
-  //     const decoded = await verifyToken(token);
-
-  //     if (!decoded) {
-  //       return response.status(401).json({ error: 'Not authorized' });
-  //     }
-
-  //     try {
-  //       // @ts-ignore
-  //       const user = await User.findById(decoded?.data);
-
-  //       if (!user) {
-  //         return response.status(404).json({ error: 'User not found' });
-  //       }
-
-  //       return response.status(200).json({
-  //         id: user._id,
-  //         first_name: user.first_name,
-  //         last_name: user.last_name,
-  //         email: user.email,
-  //         verified: user.verified,
-  //       });
-  //     } catch (error: any) {
-  //       console.log('[USER_FETCH_ERROR]', error);
-  //       return response.status(500).json({ error: 'Internal Server Error' });
-  //     }
-  //   } catch (error: any) {
-  //     console.log('[TOKEN_VERIFICATION_ERROR]', error);
-  //     return response.status(500).json({ error: 'Internal Server Error' });
-  //   }
 };
 
 interface Updates {
@@ -99,16 +66,63 @@ export const updateUser = async (
   }
 };
 
-// export const getUserCart = async (
-//   request: express.Request,
-//   response: express.Response
-// ) => {
-//     // @ts-ignore
-//     const user = request.user
+interface GetOrdersQueryParams {
+  status?: 'pending' | 'shipped' | 'delivered';
+}
 
-//     try {
-//         const cartItems = await User.findById(user._id).select('cart')
-//     } catch (error: any) {
+export const getUserOrders = async (
+  request: express.Request,
+  response: express.Response
+) => {
+  // @ts-ignore
+  const user = request.user;
+  const { status, page, limit } = request.params;
 
-//     }
-// };
+  if (page && isNaN(page as any)) {
+    return response.status(400).json({ error: 'Page should be a number.' });
+  }
+
+  if (limit && isNaN(limit as any)) {
+    return response.status(400).json({ error: 'Limit should be a number.' });
+  }
+
+  // build filters
+  const filters: GetOrdersQueryParams = {};
+
+  if (status) {
+    if (
+      status !== 'pending' &&
+      status !== 'shipped' &&
+      status !== 'delivered'
+    ) {
+      return response.status(400).json({ error: 'Invalid "status" filter' });
+    }
+
+    filters.status = status;
+  }
+
+  // filter by date range?
+
+  try {
+    const orders = await Order.find({ user: user._id });
+
+    if (!orders || orders.length === 0) {
+      return response.status(404).json({ error: 'No order found' });
+    }
+
+    const paginationResponse = await paginateQuery({
+      model: Order,
+      response,
+      filter: filters,
+      //  populate: populate === 'true' ? true : undefined,
+      page: parseInt(page as string),
+      limit: parseInt(limit as string),
+    });
+
+    // return response.status(200).json(orders);
+    return paginationResponse;
+  } catch (error: any) {
+    console.log('[ORDERS_FETCH_ERROR]');
+    return response.status(500).json({ error: 'Internal Server Error' });
+  }
+};

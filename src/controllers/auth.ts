@@ -100,7 +100,7 @@ export const loginUser = async (
   }
 
   try {
-    const userExists = await User.findOne({ email });
+    const userExists = await User.findOne({ email }).select('+password');
 
     if (!userExists) {
       return response

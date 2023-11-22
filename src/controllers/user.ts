@@ -3,6 +3,7 @@ import { verifyToken } from '../lib/helpers/token';
 import User from '../models/user';
 import Order from '../models/order';
 import paginateQuery from '../lib/helpers/paginateQuery';
+import mongoose from 'mongoose';
 
 export const getUser = async (
   request: express.Request,
@@ -76,7 +77,7 @@ export const getUserOrders = async (
 ) => {
   // @ts-ignore
   const user = request.user;
-  const { status, page, limit } = request.params;
+  const { status, page, limit } = request.query;
 
   if (page && isNaN(page as any)) {
     return response.status(400).json({ error: 'Page should be a number.' });
@@ -124,5 +125,31 @@ export const getUserOrders = async (
   } catch (error: any) {
     console.log('[ORDERS_FETCH_ERROR]');
     return response.status(500).json({ error: 'Internal Server Error' });
+  }
+};
+
+export const getSingleUserOrder = async (
+  request: express.Request,
+  response: express.Response
+) => {
+  // @ts-ignore
+  const user = request.user
+  const { id } = request.params
+
+  if (!mongoose.isValidObjectId(id)) {
+    return response.status(400).json({ error: 'Invalid Order Id'})
+  }
+
+  try {
+    const order = Order.findOne({ user: user._id, _id: id})
+
+    if(!order) {
+      return response.status(404).json({ error: 'Order not found'})
+    }
+
+    
+  } catch (error: any) {
+    console.log('[ORDER_FETCH_ERROR]', error)
+    return response.status(500).json({ error: 'Internal Server Error'})
   }
 };

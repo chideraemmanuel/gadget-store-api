@@ -6,6 +6,7 @@ import generateOtp from '../lib/helpers/generateOtp';
 import Otp from '../models/otp';
 import { generateToken, verifyToken } from '../lib/helpers/token';
 import sendEmail from '../lib/helpers/sendEmail';
+import mongoose from 'mongoose';
 
 export const registerUser = async (
   request: express.Request,
@@ -20,69 +21,83 @@ export const registerUser = async (
   }
 
   try {
-    const userExists = await User.findOne({ email });
-
-    if (userExists) {
-      return response.status(400).json({ error: 'Email is already in use' });
-    }
+    const session = await mongoose.startSession();
 
     try {
-      const hashedPassword = await hashData(password);
-      const createdUser = await User.create({
-        first_name,
-        last_name,
-        email,
-        password: hashedPassword,
-        auth_type: 'MANUAL',
-      });
+      const transactionResult = await session.withTransaction(async () => {
+        const userExists = await User.findOne({ email });
 
-      try {
-        const token = generateToken(createdUser._id);
+        if (userExists) {
+          return response
+            .status(400)
+            .json({ error: 'Email is already in use' });
+        }
+
+        const hashedPassword = await hashData(password);
+        const createdUser = await User.create(
+          [
+            {
+              first_name,
+              last_name,
+              email,
+              password: hashedPassword,
+              auth_type: 'MANUAL',
+            },
+          ],
+          { session }
+        );
+
+        const token = generateToken(createdUser[0]._id);
         const otp = generateOtp();
         const hashedOtp = await hashData(otp);
 
-        await Otp.create({
-          email,
-          otp: hashedOtp,
-          createdAt: Date.now(),
-          expiresAt: Date.now() + 3600000,
-        });
+        await Otp.create(
+          [
+            {
+              email,
+              otp: hashedOtp,
+              createdAt: Date.now(),
+              expiresAt: Date.now() + 3600000,
+            },
+          ],
+          { session }
+        );
 
-        try {
-          // const info = await sendEmail({
-          //   receipent: email,
-          //   subject: 'Email Verification',
-          //   html: `<p>Your OTP is ${otp}</p>`,
-          // });
-          // console.log('Mail sent!', info.messageId);
-          return response
-            .status(201)
-            .cookie('token', token)
-            .json({
-              user: {
-                id: createdUser._id,
-                first_name: createdUser.first_name,
-                last_name: createdUser.last_name,
-                email: createdUser.email,
-                verified: createdUser.verified,
-                user: createdUser.role,
-              },
-              message: `OTP has been sent to ${email}`,
-            });
-        } catch (error: any) {
-          console.log('[EMAIL_SENDING_ERROR]', error);
-          return response.status(500).json({ error: 'Internal Server Error' });
-        }
-      } catch (error: any) {
-        console.log('[OTP_RECORD_CREATION_ERROR]', error);
-        return response.status(500).json({ message: 'Internal Server Error' });
-      }
+        // const info = await sendEmail({
+        //   receipent: email,
+        //   subject: 'Email Verification',
+        //   html: `<p>Your OTP is ${otp}</p>`,
+        // });
+
+        // console.log('Mail sent!', info.messageId);
+
+        return response
+          .status(201)
+          .cookie('token', token)
+          .json({
+            user: {
+              id: createdUser[0]._id,
+              first_name: createdUser[0].first_name,
+              last_name: createdUser[0].last_name,
+              email: createdUser[0].email,
+              verified: createdUser[0].verified,
+              auth_type: createdUser[0].auth_type,
+              role: createdUser[0].role,
+            },
+            message: `OTP has been sent to ${email}`,
+          });
+      });
+
+      return transactionResult;
     } catch (error: any) {
-      console.log('[USER_CREATION_ERROR]', error);
-      return response.status(500).json({ message: 'Internal Server Error' });
+      console.log('[TRANSACTION_ERROR]', error);
+      // await session.abortTransaction();
+      return response.status(500).json({ error: 'Internal Server Error' });
+    } finally {
+      await session.endSession();
     }
   } catch (error: any) {
-    console.log('[USER_FETCH_ERROR]', error);
+    console.log('[SESSION_START_ERROR]', error);
     return response.status(500).json({ error: 'Internal Server Error' });
   }
 };
@@ -160,39 +175,42 @@ export const verifyUser = async (
   }
 
   try {
-    const otpRecord = await Otp.findOne({ email });
-
-    if (!otpRecord) {
-      return response.status(404).json({ error: 'No OTP record found' });
-    }
-
-    // TODO: probably chech OTP expiry
-
-    const otpMatches = await compareHash(otp, otpRecord.otp);
-
-    if (!otpMatches) {
-      return response.status(400).json({ error: 'Invalid OTP' });
-    }
+    const session = await mongoose.startSession();
 
     try {
-      await User.findOneAndUpdate({ email }, { verified: true });
+      const transactionResult = await session.withTransaction(async () => {
+        const otpRecord = await Otp.findOne({ email });
 
-      try {
-        await Otp.findByIdAndDelete(otpRecord._id);
+        if (!otpRecord) {
+          return response.status(404).json({ error: 'No OTP record found' });
+        }
 
-        return response
-          .status(200)
-          .json({ message: `Email (${email}) has been verified successfully` });
-      } catch (error: any) {
-        console.log('[OTP_RECORD_DELETION_ERROR]', error);
-        return response.status(500).json({ error: 'Internal Server Error' });
-      }
+        // TODO: probably chech OTP expiry
+
+        const otpMatches = await compareHash(otp, otpRecord.otp);
+
+        if (!otpMatches) {
+          return response.status(400).json({ error: 'Invalid OTP' });
+        }
+
+        await User.findOneAndUpdate({ email }, { verified: true }, { session });
+
+        await Otp.findByIdAndDelete(otpRecord._id, { session });
+
+        return response.status(200).json({
+          message: `Email (${email}) has been verified successfully`,
+        });
+      });
+
+      return transactionResult;
     } catch (error: any) {
-      console.log('[USER_UPDATE_ERROR]', error);
+      console.log('[TRANSACTION_ERROR]', error);
       return response.status(500).json({ error: 'Internal Server Error' });
+    } finally {
+      await session.endSession();
     }
   } catch (error: any) {
-    console.log('[OTP_RECORD_FETCH_ERROR]', error);
+    console.log('[SESSION_START_ERROR]', error);
     return response.status(500).json({ error: 'Internal Server Error' });
   }
 };
@@ -210,67 +228,66 @@ export const resetOtp = async (
   }
 
   try {
-    const userExists = await User.findOne({ email });
-
-    if (!userExists) {
-      return response
-        .status(404)
-        .json({ error: 'No user with the suppplied email' });
-    }
-
-    if (userExists.verified) {
-      return response
-        .status(400)
-        .json({ error: 'Email has already been verified' });
-    }
+    const session = await mongoose.startSession();
 
     try {
-      const otpRecord = await Otp.findOne({ email });
+      const transactionResult = await session.withTransaction(async () => {
+        const userExists = await User.findOne({ email });
 
-      if (otpRecord) {
-        try {
-          await Otp.deleteOne({ email });
-        } catch (error: any) {
-          console.log('[OTP_RECORD_DELETION_ERROR]', error);
-          return response.status(500).json({ error: 'Internal Server Error' });
+        if (!userExists) {
+          return response
+            .status(404)
+            .json({ error: 'No user with the suppplied email' });
         }
-      }
 
-      try {
+        if (userExists.verified) {
+          return response
+            .status(400)
+            .json({ error: 'Email has already been verified' });
+        }
+
+        const otpRecord = await Otp.findOne({ email });
+
+        if (otpRecord) {
+          await Otp.deleteOne({ email }, { session });
+        }
+
         const otp = generateOtp();
         const hashedOtp = hashData(otp);
 
-        await Otp.create({
-          email,
-          otp: hashedOtp,
-          createdAt: Date.now(),
-          expiresAt: Date.now() + 3600000,
-        });
+        await Otp.create(
+          [
+            {
+              email,
+              otp: hashedOtp,
+              createdAt: Date.now(),
+              expiresAt: Date.now() + 3600000,
+            },
+          ],
+          { session }
+        );
 
-        try {
-          const info = await sendEmail({
-            receipent: email,
-            subject: 'Email Verification',
-            html: '',
-          });
-          console.log('Mail sent!', info.messageId);
-          return response
-            .status(201)
-            .json({ message: `OTP has been resent to ${email}` });
-        } catch (error: any) {
-          console.log('[EMAIL_SENDING_ERROR]', error);
-          return response.status(500).json({ error: 'Internal Server Error' });
-        }
-      } catch (error: any) {
-        console.log('[OTP_RECORD_CREATION_ERROR]', error);
-        return response.status(500).json({ error: 'Internal Server Error' });
-      }
+        const info = await sendEmail({
+          receipent: email,
+          subject: 'Email Verification',
+          html: '',
+        });
+        console.log('Mail sent!', info.messageId);
+
+        return response
+          .status(201)
+          .json({ message: `OTP has been resent to ${email}` });
+      });
+
+      return transactionResult;
     } catch (error: any) {
-      console.log('[OTP_RECORD_DELETION_ERROR]', error);
+      console.log('[TRANSACTION_ERROR]', error);
       return response.status(500).json({ error: 'Internal Server Error' });
+    } finally {
+      await session.endSession();
     }
   } catch (error: any) {
-    console.log('[USER_FETCH_ERROR]', error);
+    console.log('[SESSION_START_ERROR]', error);
     return response.status(500).json({ error: 'Internal Server Error' });
   }
 };

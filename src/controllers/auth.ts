@@ -305,7 +305,7 @@ export const loginAdmin = async (
   }
 
   try {
-    const userExists = await User.findOne({ email });
+    const userExists = await User.findOne({ email }).select('+password');
 
     if (!userExists) {
       return response
@@ -326,7 +326,13 @@ export const loginAdmin = async (
       });
     }
 
-    const passwordMatches = await compareHash(password, userExists.password!);
+    console.log('password', password);
+    console.log('stored password', userExists.password);
+
+    const passwordMatches = await compareHash(
+      password,
+      userExists.password as string
+    );
 
     if (!passwordMatches) {
       return response.status(401).json({ error: 'Incorrect password' });
@@ -340,10 +346,56 @@ export const loginAdmin = async (
       last_name: userExists.last_name,
       email: userExists.email,
       verified: userExists.verified,
-      user: userExists.role,
+      role: userExists.role,
     });
   } catch (error: any) {
     console.log('[USER_FETCH_ERROR]', error);
+    return response.status(500).json({ error: 'Internal Server Error' });
+  }
+};
+
+export const getCurrentAdmin = async (
+  request: express.Request,
+  response: express.Response
+) => {
+  const { admin_token } = request.cookies;
+  const admin_token2 = request.cookies.admin_token;
+  console.log(admin_token);
+  console.log(admin_token2);
+
+  if (!admin_token) {
+    return response.status(401).json({ error: 'Unauthorized - No token' });
+  }
+
+  const decoded = await verifyToken(admin_token);
+
+  if (!decoded) {
+    return response
+      .status(401)
+      .json({ error: 'Not authorized' })
+      .cookie('admin_token', '', { maxAge: 1 });
+  }
+
+  try {
+    const user = await User.findById(decoded?.data);
+
+    if (!user) {
+      return response
+        .status(404)
+        .json({ error: 'User not found' })
+        .cookie('admin_token', '', { maxAge: 1 });
+    }
+
+    if (user?.role !== 'admin') {
+      return response
+        .status(403)
+        .json({ error: 'Forbidden - Not authorized' })
+        .cookie('admin_token', '', { maxAge: 1 });
+    }
+
+    return response.status(200).json(user);
+  } catch (error: any) {
+    console.log('[AUTHENTICATION_ERROR]', error);
     return response.status(500).json({ error: 'Internal Server Error' });
   }
 };

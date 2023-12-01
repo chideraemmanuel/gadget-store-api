@@ -1,5 +1,6 @@
 import express from 'express';
 import {
+  getCurrentAdmin,
   loginAdmin,
   // getUser,
   loginUser,
@@ -14,7 +15,8 @@ const router = express.Router();
 router.post('/register', registerUser);
 router.post('/login', loginUser);
 router.post('/logout', logoutUser);
-router.post('/login/admin', loginAdmin);
+router.get('/admin', getCurrentAdmin);
+router.post('/admin/login', loginAdmin);
 router.post('/verify', verifyUser);
 router.post('/otp/resend', resetOtp);
 // router.get('/user', getUser);

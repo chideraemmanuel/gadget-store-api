@@ -52,22 +52,59 @@ export const verify = async (
   next();
 };
 
-export const authorize = (
+export const authorize = async (
   request: express.Request,
   response: express.Response,
   next: NextFunction
 ) => {
-  // @ts-ignore
-  const user = request.user;
+  // // @ts-ignore
+  // const user = request.user;
 
-  if (!user) {
-    return response.status(401).json({ error: 'Not authenticated' });
+  // if (!user) {
+  //   return response.status(401).json({ error: 'Not authenticated' });
+  // }
+
+  // if (user?.role !== 'admin') {
+  //   return response
+  //     .status(403)
+  //     .json({ error: 'Forbidden - Admin access required' });
+  // }
+
+  const admin_token = request.cookies.admin_token;
+
+  if (!admin_token) {
+    return response.status(401).json({ error: 'Unauthorized - No token' });
   }
 
-  if (user?.role !== 'admin') {
+  const decoded = await verifyToken(admin_token);
+
+  if (!decoded) {
     return response
-      .status(403)
-      .json({ error: 'Forbidden - Admin access required' });
+      .status(401)
+      .cookie('admin_token', '', { maxAge: 1 })
+      .json({ error: 'Unauthorized' });
+  }
+
+  try {
+    const user = await User.findById(decoded?.data);
+
+    if (!user) {
+      return response
+        .status(404)
+        .cookie('admin_token', '', { maxAge: 1 })
+        .json({ error: 'Admin not found' });
+    }
+
+    if (user.role !== 'admin') {
+      return response
+        .status(403)
+        .json({ error: 'Forbidden - Admin access required' });
+    }
+
+    // next();
+  } catch (error: any) {
+    console.log('[USER_FETCH_ERROR]', error);
+    return response.status(500).json({ error: 'Internal Server Error' });
   }
 
   next();

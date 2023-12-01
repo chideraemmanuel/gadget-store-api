@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { NextFunction } from 'express';
 import morgan from 'morgan';
 import dotenv from 'dotenv';
 import cookieParser from 'cookie-parser';
@@ -23,8 +23,26 @@ export const port = process.env.PORT || 5001;
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
+app.use(
+  (
+    request: express.Request,
+    response: express.Response,
+    next: NextFunction
+  ) => {
+    response.header({
+      'Access-Control-Allow-Credentials': true,
+    });
+
+    next();
+  }
+);
+
 // ENABLE CORS
-app.use(cors());
+app.use(
+  cors({
+    origin: 'http://localhost:3000',
+  })
+);
 
 // ENABLE COOKIE PARSER
 app.use(cookieParser());
@@ -67,8 +85,8 @@ mongoose
 
 app.use('/api/v1/products', productsRouter);
 app.use('/api/v1/categories', categoriesRouter);
-app.use('/api/v1/users', authenticate, authorize, usersRouter);
-app.use('/api/v1/orders', authenticate, authorize, ordersRouter);
+app.use('/api/v1/users', authorize, usersRouter);
+app.use('/api/v1/orders', authorize, ordersRouter);
 app.use('/api/v1/user', authenticate, userRouter);
 app.use('/api/v1/cart', authenticate, verify, cartRouter);
 app.use('/api/v1/auth', authRouter);

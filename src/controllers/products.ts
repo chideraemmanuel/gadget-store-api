@@ -162,40 +162,15 @@ export const addProduct = async (
   request: express.Request,
   response: express.Response
 ) => {
-  // upload.single('main_image')(request, response, async (error) => {
-  //   if (error) {
-  //     return response
-  //       .status(500)
-  //       .json({ error: error.message, msg: error.stack });
-  //   }
-
-  //   // upload.array('other_images')(request, response, async (error) => {
-
-  //   // if (error) {
-  //   //   return response.status(500).json({ error: error.message });
-  //   // }
-
-  //   // if (!request.file || !request.files) {
-  //   //   return response.status(400).json({
-  //   //     error: 'Please supply the required product fields.',
-  //   //   });
-  //   // }
-  //   // });
-
-  // });
-
-  // UPLOAD.FIELD() TAKES AN ARRAY OF FILE FIELDS AND ADDS AN OBJECT CONTAINING EACH, WITH THE NAME AS THE KEY, AND AN ARRAY OF THE FILES FROM SUCH FIELD AS THE VALUE TO THE REQUEST.FILES OBJECT
-  upload.fields([
-    { name: 'main_image', maxCount: 1 },
-    { name: 'other_images' },
-  ])(request, response, async (error: any) => {
+  upload.single('product_image')(request, response, async (error) => {
     if (
       error?.code === 'LIMIT_FILE_COUNT' ||
       error?.code === 'LIMIT_UNEXPECTED_FILE'
     ) {
       return response.status(400).json({
-        error: 'Main image should be a single file',
+        error: 'Product image should be a single file',
         errorCode: error?.code,
+        //  errorMessage: error?.message,
       });
     }
 
@@ -204,21 +179,23 @@ export const addProduct = async (
     }
 
     // @ts-ignore
-    if (!request.files?.main_image || !request.files?.other_images) {
+    if (!request.file) {
       return response.status(400).json({
         error: 'Please supply the required product fields.',
       });
     }
 
     const product = request.body;
+
+    console.log('product', product);
+
     const {
       product_name,
       brand,
       description,
       price,
       category,
-      main_image,
-      other_images,
+      product_image,
       count_in_stock,
       featured,
     } = product;
@@ -227,14 +204,14 @@ export const addProduct = async (
     // console.log('req files', request.files);
 
     // @ts-ignore
-    const mainImage = request.files?.main_image[0];
+    const productImage = request.file;
     // @ts-ignore
-    const otherImages = request.files?.other_images.map((file) => {
-      return `http://localhost:5000/public/assets/${file?.filename}`;
-    });
+    //  const otherImages = request.files?.other_images.map((file) => {
+    //    return `http://localhost:5000/public/assets/${file?.filename}`;
+    //  });
 
-    console.log('main image', mainImage);
-    console.log('other images', otherImages);
+    //  console.log('main image', mainImage);
+    //  console.log('other images', otherImages);
 
     if (
       !product_name ||
@@ -244,10 +221,9 @@ export const addProduct = async (
       !category ||
       !count_in_stock ||
       !featured ||
-      // !main_image ||
-      // !other_images ||
-      !mainImage ||
-      !otherImages
+      // !product_image ||
+      !productImage
+      //  !otherImages
     ) {
       return response.status(400).json({
         error: 'Please supply the required product fields.',
@@ -302,8 +278,8 @@ export const addProduct = async (
         description,
         price,
         category,
-        main_image: `http://localhost:5000/public/assets/${mainImage?.filename}`,
-        other_images: otherImages,
+        product_image: `http://localhost:5000/public/assets/${productImage?.filename}`,
+        //  other_images: otherImages,
         count_in_stock: count_in_stock as number,
         featured,
       });
@@ -314,42 +290,22 @@ export const addProduct = async (
     }
   });
 
-  // console.log('req file2', request.file);
+  // UPLOAD.FIELD() TAKES AN ARRAY OF FILE FIELDS AND ADDS AN OBJECT CONTAINING EACH, WITH THE NAME AS THE KEY, AND AN ARRAY OF THE FILES FROM SUCH FIELD AS THE VALUE TO THE REQUEST.FILES OBJECT
+  // upload.fields([
+  //   { name: 'main_image', maxCount: 1 },
+  //   { name: 'other_images', maxCount: 5 },
+  // ])(request, response, async (error: any) => {
+  //  // HANDLE MULTIPLE FILE UPLOAD HERE
+  // });
 };
 
-// ******************************************
-// ******************************************
-// ******************************************
-// const User = mongoose.model('User', {
-//   name: String,
-// });
-
-// User.createIndex({ name: 'text' });
-
-// ******************************************
-// ******************************************
-// ******************************************
-// const User = mongoose.model('User', {
-//   name: String,
-// });
-
-// const users = await User.find({
-//   $text: { $search: 'fluff' },
-// });
-
-// ******************************************
-// ******************************************
-// ******************************************
-// ******************************************
-// ******************************************
 interface Updates {
   product_name?: string;
   brand?: string;
   description?: string;
   price?: number;
   category?: string;
-  main_image?: string;
-  other_images?: string[];
+  product_image?: string;
   count_in_stock?: number;
 }
 
@@ -357,16 +313,13 @@ export const updateProduct = async (
   request: express.Request,
   response: express.Response
 ) => {
-  upload.fields([
-    { name: 'main_image', maxCount: 1 },
-    { name: 'other_images' },
-  ])(request, response, async (error: any) => {
+  upload.single('product_image')(request, response, async (error) => {
     if (
       error?.code === 'LIMIT_FILE_COUNT' ||
       error?.code === 'LIMIT_UNEXPECTED_FILE'
     ) {
       return response.status(400).json({
-        error: 'Main image should be a single file',
+        error: 'Product image should be a single file',
         errorCode: error?.code,
       });
     }
@@ -382,8 +335,8 @@ export const updateProduct = async (
       description,
       price,
       category,
-      main_image,
-      other_images,
+      product_image,
+      // other_images,
       count_in_stock,
     } = request.body;
 
@@ -410,10 +363,11 @@ export const updateProduct = async (
         !count_in_stock &&
         // !main_image &&
         // !other_images &&
+        !request.file
         // @ts-ignore
-        !request.files?.main_image &&
+        // !request.files?.product_image
         // @ts-ignore
-        !request.files?.other_images
+        // !request.files?.other_images
       ) {
         return response.status(400).json({
           error: 'No field to be edited was supplied',
@@ -458,19 +412,19 @@ export const updateProduct = async (
       }
 
       // @ts-ignore
-      if (request.files?.main_image) {
+      if (request.file) {
         // @ts-ignore
-        const mainImage = request.files?.main_image[0];
-        updates.main_image = `http://localhost:5000/public/assets/${mainImage?.filename}`;
+        const mainImage = request.file;
+        updates.product_image = `http://localhost:5000/public/assets/${mainImage?.filename}`;
       }
       // @ts-ignore
-      if (request.files?.other_images) {
-        // @ts-ignore
-        const otherImages = request.files?.other_images.map((file) => {
-          return `http://localhost:5000/public/assets/${file?.filename}`;
-        });
-        updates.other_images = otherImages;
-      }
+      // if (request.files?.other_images) {
+      //   // @ts-ignore
+      //   const otherImages = request.files?.other_images.map((file) => {
+      //     return `http://localhost:5000/public/assets/${file?.filename}`;
+      //   });
+      //   updates.other_images = otherImages;
+      // }
 
       if (category) {
         // CHECK IF CATEGORY ID IS VALID
@@ -515,6 +469,13 @@ export const updateProduct = async (
       return response.status(500).json({ error: 'Internal Server Error' });
     }
   });
+
+  // upload.fields([
+  //   { name: 'main_image', maxCount: 1 },
+  //   { name: 'other_images' maxCount: 5 },
+  // ])(request, response, async (error: any) => {
+  //  // HANDLE MULTIPLE FILE UPLOAD HERE
+  // });
 };
 
 export const deleteProduct = async (
@@ -540,10 +501,7 @@ export const deleteProduct = async (
       await Product.findByIdAndDelete(id);
 
       try {
-        const imageUrls = [
-          productExists.main_image,
-          ...productExists.other_images,
-        ];
+        const imageUrls = [productExists.product_image];
 
         const filePaths = imageUrls.map(
           (filePath) => `src/assets/${getImageName(filePath)}`

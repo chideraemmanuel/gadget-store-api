@@ -25,13 +25,9 @@ const productSchema = new mongoose.Schema({
     required: true,
     autopopulate: true,
   },
-  main_image: {
+  product_image: {
     type: String,
     required: true,
-  },
-  other_images: {
-    type: [String],
-    default: [],
   },
   //   availability: {
   //     type: String,

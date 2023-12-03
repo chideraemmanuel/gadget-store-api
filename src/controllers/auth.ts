@@ -354,14 +354,24 @@ export const loginAdmin = async (
   }
 };
 
+export const logoutAdmin = (
+  request: express.Request,
+  response: express.Response
+) => {
+  return response
+    .status(200)
+    .cookie('admin_token', '', { maxAge: 1 })
+    .json({ message: 'Logout Successful' });
+};
+
 export const getCurrentAdmin = async (
   request: express.Request,
   response: express.Response
 ) => {
   const { admin_token } = request.cookies;
-  const admin_token2 = request.cookies.admin_token;
-  console.log(admin_token);
-  console.log(admin_token2);
+  // const admin_token2 = request.cookies.admin_token;
+  // console.log(admin_token);
+  // console.log(admin_token2);
 
   if (!admin_token) {
     return response.status(401).json({ error: 'Unauthorized - No token' });

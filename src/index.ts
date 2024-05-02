@@ -76,6 +76,8 @@ app.use(
 //   }
 // });
 
+console.log(process.env.MONGODB_URI!);
+
 // CONNECT TO DATABASE
 mongoose
   .connect(process.env.MONGODB_URI!)

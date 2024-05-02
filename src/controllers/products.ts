@@ -231,11 +231,11 @@ export const addProduct = async (
     }
 
     // CHECK IF FEATURED IS A BOOLEAN
-    // if (typeof featured !== 'boolean') {
-    //   return response
-    //     .status(400)
-    //     .json({ error: 'Featured should be a boolean value' });
-    // }
+    if (typeof featured !== 'boolean') {
+      return response
+        .status(400)
+        .json({ error: 'Featured should be a boolean value' });
+    }
 
     // CHECK IF PRICE IS A NUMBER
     if (isNaN(price)) {
@@ -307,6 +307,7 @@ interface Updates {
   category?: string;
   product_image?: string;
   count_in_stock?: number;
+  featured?: boolean;
 }
 
 export const updateProduct = async (
@@ -338,6 +339,7 @@ export const updateProduct = async (
       product_image,
       // other_images,
       count_in_stock,
+      featured,
     } = request.body;
 
     if (!mongoose.isValidObjectId(id)) {
@@ -361,6 +363,7 @@ export const updateProduct = async (
         !price &&
         !category &&
         !count_in_stock &&
+        featured === undefined &&
         // !main_image &&
         // !other_images &&
         !request.file
@@ -408,6 +411,19 @@ export const updateProduct = async (
             .json({ error: 'Count in stock should be a number' });
         } else {
           updates.count_in_stock = +count_in_stock;
+        }
+      }
+
+      // console.log('featured', featured);
+      // console.log('type of featured', typeof featured);
+
+      if (featured !== undefined) {
+        if (typeof featured !== 'boolean') {
+          return response
+            .status(400)
+            .json({ error: 'Featured should be a boolean' });
+        } else {
+          updates.featured = featured;
         }
       }
 

@@ -514,42 +514,48 @@ export const deleteProduct = async (
     }
 
     try {
-      await Product.findByIdAndDelete(id);
+      const session = await mongoose.startSession();
 
       try {
-        const imageUrls = [productExists.product_image];
+        const transactionResult = await session.withTransaction(async () => {
+          await Product.findByIdAndDelete(id);
 
-        const filePaths = imageUrls.map(
-          (filePath) => `src/assets/${getImageName(filePath)}`
-        );
+          const imageUrls = [productExists.product_image];
 
-        const promises = filePaths.map((filePath) => {
-          return new Promise((resolve, reject) => {
-            fs.unlink(filePath, (error) => {
-              if (error) {
-                reject(error);
-              } else {
-                resolve('');
-              }
+          const filePaths = imageUrls.map(
+            (filePath) => `src/assets/${getImageName(filePath)}`
+          );
+
+          const promises = filePaths.map((filePath) => {
+            return new Promise((resolve, reject) => {
+              fs.unlink(filePath, (error) => {
+                if (error) {
+                  reject(error);
+                } else {
+                  resolve('');
+                }
+              });
             });
           });
+
+          await Promise.all(promises);
+
+          return response
+            .status(200)
+            .json({ message: 'Product deleted successfully' });
         });
 
-        await Promise.all(promises);
-
-        return response
-          .status(200)
-          .json({ message: 'Product deleted successfully' });
+        return transactionResult;
       } catch (error: any) {
-        console.log('[FILE_DELETION_ERROR]', error);
-        response.status(500).json({ error: 'Error deleting files' });
+        console.log('[TRANSACTION_ERROR]', error);
+        // await session.abortTransaction();
+        return response.status(500).json({ error: 'Internal Server Error' });
+      } finally {
+        await session.endSession();
       }
-
-      // return response
-      //   .status(200)
-      //   .json({ message: 'Product deleted successfully' });
     } catch (error: any) {
-      console.log('[PRODUCT_DELETION_ERROR]', error);
+      console.log('[SESSION_START_ERROR]', error);
+      return response.status(500).json({ error: 'Internal Server Error' });
     }
   } catch (error: any) {
     console.log('[PRODUCT_FETCH_ERROR]', error);

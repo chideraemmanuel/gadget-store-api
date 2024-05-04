@@ -73,3 +73,64 @@ export const getSingleBillboard = async (
     return response.status(500).json({ error: 'Internal Server Error' });
   }
 };
+
+export const createBillboard = async (
+  request: express.Request,
+  response: express.Response
+) => {
+  upload.single('billboard_image')(request, response, async (error) => {
+    if (
+      error?.code === 'LIMIT_FILE_COUNT' ||
+      error?.code === 'LIMIT_UNEXPECTED_FILE'
+    ) {
+      return response.status(400).json({
+        error: 'Billboard image should be a single file',
+        errorCode: error?.code,
+        //  errorMessage: error?.message,
+      });
+    }
+
+    if (error) {
+      return response.status(500).json({ error: error.message });
+    }
+
+    if (!request.file) {
+      return response.status(400).json({
+        error: 'Please supply the required product fields.',
+      });
+    }
+
+    const billboard = request.body;
+
+    const { name, head_text, paragraph, billboard_image } = billboard;
+
+    const billboardImage = request.file;
+
+    if (!name || !head_text || !billboardImage) {
+      return response
+        .status(400)
+        .json({ error: 'Please supply the required fields' });
+    }
+
+    try {
+      const createdBillboard = await Billboard.create({
+        name,
+        head_text,
+        paragraph,
+        billboard_image: `http://localhost:5000/public/assets/billboards/${billboardImage?.filename}`,
+      });
+
+      return response.status(201).json(createdBillboard);
+    } catch (error: any) {
+      console.log('CREATE_BILLBOARD_ERROR', error);
+      return response.status(500).json({ error: 'Internal Server Error' });
+    }
+  });
+};
+
+interface BillboardUpdates {
+  name?: string;
+  head_text?: string;
+  paragraph?: string;
+  billboard_image?: string;
+}

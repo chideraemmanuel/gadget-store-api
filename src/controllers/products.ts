@@ -278,7 +278,7 @@ export const addProduct = async (
         description,
         price,
         category,
-        product_image: `http://localhost:5000/public/assets/${productImage?.filename}`,
+        product_image: `http://localhost:5000/public/assets/products/${productImage?.filename}`,
         //  other_images: otherImages,
         count_in_stock: count_in_stock as number,
         featured,
@@ -431,7 +431,7 @@ export const updateProduct = async (
       if (request.file) {
         // @ts-ignore
         const mainImage = request.file;
-        updates.product_image = `http://localhost:5000/public/assets/${mainImage?.filename}`;
+        updates.product_image = `http://localhost:5000/public/assets/products/${mainImage?.filename}`;
       }
       // @ts-ignore
       // if (request.files?.other_images) {
@@ -523,7 +523,7 @@ export const deleteProduct = async (
           const imageUrls = [productExists.product_image];
 
           const filePaths = imageUrls.map(
-            (filePath) => `src/assets/${getImageName(filePath)}`
+            (filePath) => `src/assets/products/${getImageName(filePath)}`
           );
 
           const promises = filePaths.map((filePath) => {

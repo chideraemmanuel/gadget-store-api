@@ -6,6 +6,7 @@ import cors from 'cors';
 import mongoose from 'mongoose';
 import productsRouter from './routes/products';
 import categoriesRouter from './routes/categories';
+import billboardsRouter from './routes/billboard';
 import usersRouter from './routes/users';
 import ordersRouter from './routes/orders';
 import userRouter from './routes/user';
@@ -91,6 +92,7 @@ mongoose
 
 app.use('/api/v1/products', productsRouter);
 app.use('/api/v1/categories', categoriesRouter);
+app.use('/api/v1/billboards', billboardsRouter);
 app.use('/api/v1/users', authorize, usersRouter);
 app.use('/api/v1/orders', authorize, ordersRouter);
 app.use('/api/v1/user', authenticate, userRouter);

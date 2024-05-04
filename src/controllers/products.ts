@@ -518,7 +518,7 @@ export const deleteProduct = async (
 
       try {
         const transactionResult = await session.withTransaction(async () => {
-          await Product.findByIdAndDelete(id);
+          await Product.findByIdAndDelete(id, { session });
 
           const imageUrls = [productExists.product_image];
 

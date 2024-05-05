@@ -6,13 +6,14 @@ import {
   getSingleBillboard,
   updateBillboard,
 } from '../controllers/billboard';
+import { authorize } from '../middlewares/auth';
 
 const router = express.Router();
 
 router.get('/', getBillboards);
 router.get('/:id', getSingleBillboard);
-router.post('/', createBillboard);
-router.put('/:id', updateBillboard);
-router.delete('/:id', deleteBillboard);
+router.post('/', authorize, createBillboard);
+router.put('/:id', authorize, updateBillboard);
+router.delete('/:id', authorize, deleteBillboard);
 
 export default router;

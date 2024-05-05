@@ -348,9 +348,9 @@ export const updateProduct = async (
 
     // CHECK IF PRODUCT EXISTS
     try {
-      const product = await Product.findById(id);
+      const productExists = await Product.findById(id);
 
-      if (!product) {
+      if (!productExists) {
         return response
           .status(404)
           .json({ error: 'Product with the supplied ID does not exist.' });
@@ -465,21 +465,56 @@ export const updateProduct = async (
         }
       }
 
+      console.log(updates);
+
       try {
-        console.log(updates);
-        const updatedProduct = await Product.findByIdAndUpdate(id, updates, {
-          new: true,
-        });
+        const session = await mongoose.startSession();
 
-        // if (!updatedProduct) {
-        //   return response.status(404).json({ error: 'Could not find the corresponding document.'})
-        // }
+        try {
+          const transactionResult = session.withTransaction(async () => {
+            const updatedProduct = await Product.findByIdAndUpdate(
+              id,
+              updates,
+              {
+                new: true,
+                session,
+              }
+            );
 
-        return response.status(200).json(updatedProduct);
+            const imageUrls = [productExists.product_image];
+
+            const filePaths = imageUrls.map(
+              (filePath) => `src/assets/products/${getImageName(filePath)}`
+            );
+
+            const promises = filePaths.map((filePath) => {
+              return new Promise((resolve, reject) => {
+                fs.unlink(filePath, (error) => {
+                  if (error) {
+                    reject(error);
+                  } else {
+                    resolve('');
+                  }
+                });
+              });
+            });
+
+            await Promise.all(promises);
+
+            return response.status(200).json(updatedProduct);
+          });
+
+          return transactionResult;
+        } catch (error: any) {
+          console.log('[PRODUCT_UPDATE_ERROR]', error);
+          return response.status(500).json({ error: 'Internal Server Error' });
+        } finally {
+          await session.endSession();
+        }
       } catch (error: any) {
-        console.log('[PRODUCT_UPDATE_ERROR]', error);
+        console.log('SESSION_START_ERROR', error);
         return response.status(500).json({ error: 'Internal Server Error' });
-      }
+      } // end session
     } catch (error: any) {
       console.log('[PRODUCT_FETCH_ERROR]', error);
       return response.status(500).json({ error: 'Internal Server Error' });

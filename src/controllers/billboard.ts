@@ -45,7 +45,7 @@ export const getBillboards = async (
 
     return pagiationResponse;
   } catch (error: any) {
-    console.log('DATABASE_SEARCH_ERROR', error);
+    console.log('[DATABASE_SEARCH_ERROR]', error);
     return response.status(500).json({ error: 'Internal Server Error' });
   }
 };
@@ -71,7 +71,7 @@ export const getSingleBillboard = async (
 
     return response.status(200).json(billboard);
   } catch (error: any) {
-    console.log('BILLBOARD_FETCH_ERROR', error);
+    console.log('[BILLBOARD_FETCH_ERROR]', error);
     return response.status(500).json({ error: 'Internal Server Error' });
   }
 };
@@ -124,7 +124,7 @@ export const createBillboard = async (
 
       return response.status(201).json(createdBillboard);
     } catch (error: any) {
-      console.log('CREATE_BILLBOARD_ERROR', error);
+      console.log('[BILLBOARD_CREATION_ERROR]', error);
       return response.status(500).json({ error: 'Internal Server Error' });
     }
   });
@@ -157,11 +157,11 @@ export const updateBillboard = (
       return response.status(500).json({ error: error.message });
     }
 
-    if (!request.file) {
-      return response.status(400).json({
-        error: 'Please supply the required product fields.',
-      });
-    }
+    // if (!request.file) {
+    //   return response.status(400).json({
+    //     error: 'Please supply the required product fields.',
+    //   });
+    // }
 
     const { id } = request.params;
     const billboard = request.body;
@@ -247,18 +247,87 @@ export const updateBillboard = (
 
           return transactionResult;
         } catch (error: any) {
-          console.log('BILLBOARD_UPDATE_ERROR', error);
+          console.log('[TRANSACTION_ERROR]', error);
           return response.status(500).json({ error: 'Internal Server Error' });
         } finally {
           await session.endSession();
         }
       } catch (error: any) {
-        console.log('SESSION_START_ERROR', error);
+        console.log('[SESSION_START_ERROR]', error);
         return response.status(500).json({ error: 'Internal Server Error' });
       }
     } catch (error: any) {
-      console.log('BILLBOARD_FETCH_ERROR', error);
+      console.log('[BILLBOARD_FETCH_ERROR]', error);
       return response.status(500).json({ error: 'Internal Server Error' });
     }
   });
+};
+
+export const deleteBillboard = async (
+  request: express.Request,
+  response: express.Response
+) => {
+  const { id } = request.params;
+
+  if (!mongoose.isValidObjectId(id)) {
+    return response.status(400).json({ error: 'Invalid Billboard ID' });
+  }
+
+  // check if billboard exists
+  try {
+    const billboardExists = await Billboard.findById(id);
+
+    if (!billboardExists) {
+      return response
+        .status(404)
+        .json({ error: 'Billboard with the supplied ID does not exist' });
+    }
+
+    try {
+      const session = await mongoose.startSession();
+
+      try {
+        const transactionResult = await session.withTransaction(async () => {
+          await Billboard.findByIdAndDelete(id, { session });
+
+          const imageUrls = [billboardExists.billboard_image];
+
+          const filePaths = imageUrls.map(
+            (filePath) => `src/assets/billboards/${getImageName(filePath)}`
+          );
+
+          const promises = filePaths.map((filePath) => {
+            return new Promise((resolve, reject) => {
+              fs.unlink(filePath, (error) => {
+                if (error) {
+                  reject(error);
+                } else {
+                  resolve('');
+                }
+              });
+            });
+          });
+
+          await Promise.all(promises);
+
+          return response
+            .status(200)
+            .json({ message: 'Billboard deleted successfully' });
+        });
+
+        return transactionResult;
+      } catch (error: any) {
+        console.log('[TRANSACTION_ERROR]', error);
+        return response.status(500).json({ error: 'Internal Server Error' });
+      } finally {
+        await session.endSession();
+      }
+    } catch (error: any) {
+      console.log('[SESSION_START_ERROR]', error);
+      return response.status(500).json({ error: 'Internal Server Error' });
+    }
+  } catch (error: any) {
+    console.log('[BILLBOARD_FETCH_ERROR]', error);
+    return response.status(500).json({ error: 'Internal Server Error' });
+  }
 };

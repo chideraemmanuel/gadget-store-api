@@ -125,7 +125,7 @@ export const getProducts = async (
 
     return paginationResponse;
   } catch (error: any) {
-    console.log('DATABASE_SEARCH_ERROR', error);
+    console.log('[DATABASE_SEARCH_ERROR]', error);
     return response.status(500).json({ error: 'Internal Server Error' });
   }
 
@@ -506,13 +506,13 @@ export const updateProduct = async (
 
           return transactionResult;
         } catch (error: any) {
-          console.log('[PRODUCT_UPDATE_ERROR]', error);
+          console.log('[TRANSACTION_ERROR]', error);
           return response.status(500).json({ error: 'Internal Server Error' });
         } finally {
           await session.endSession();
         }
       } catch (error: any) {
-        console.log('SESSION_START_ERROR', error);
+        console.log('[SESSION_START_ERROR]', error);
         return response.status(500).json({ error: 'Internal Server Error' });
       } // end session
     } catch (error: any) {

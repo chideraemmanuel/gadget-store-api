@@ -119,7 +119,8 @@ export const createBillboard = async (
         name,
         head_text,
         paragraph,
-        billboard_image: `http://localhost:5000/public/assets/billboards/${billboardImage?.filename}`,
+        // billboard_image: `http://localhost:5000/public/assets/billboards/${billboardImage?.filename}`,
+        billboard_image: `http://localhost:5000/public/assets/${billboardImage?.filename}`,
       });
 
       return response.status(201).json(createdBillboard);
@@ -206,7 +207,8 @@ export const updateBillboard = (
       if (request.file) {
         const billboardImage = request.file;
 
-        updates.billboard_image = `http://localhost:5000/public/assets/billboards/${billboardImage?.filename}`;
+        // updates.billboard_image = `http://localhost:5000/public/assets/billboards/${billboardImage?.filename}`;
+        updates.billboard_image = `http://localhost:5000/public/assets/${billboardImage?.filename}`;
       }
 
       console.log(updates);
@@ -225,7 +227,8 @@ export const updateBillboard = (
             const imageUrls = [billboardExists.billboard_image];
 
             const filePaths = imageUrls.map(
-              (filePath) => `src/assets/billboards/${getImageName(filePath)}`
+              // (filePath) => `src/assets/billboards/${getImageName(filePath)}`
+              (filePath) => `src/assets/${getImageName(filePath)}`
             );
 
             const promises = filePaths.map((filePath) => {
@@ -293,7 +296,8 @@ export const deleteBillboard = async (
           const imageUrls = [billboardExists.billboard_image];
 
           const filePaths = imageUrls.map(
-            (filePath) => `src/assets/billboards/${getImageName(filePath)}`
+            // (filePath) => `src/assets/billboards/${getImageName(filePath)}`
+            (filePath) => `src/assets/${getImageName(filePath)}`
           );
 
           const promises = filePaths.map((filePath) => {

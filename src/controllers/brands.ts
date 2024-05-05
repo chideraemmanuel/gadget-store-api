@@ -2,6 +2,9 @@ import express from 'express';
 import paginateQuery from '../lib/helpers/paginateQuery';
 import Brand from '../models/brand';
 import mongoose from 'mongoose';
+import upload from '../config/multer';
+import fs from 'fs';
+import getImageName from '../lib/helpers/getImageName';
 
 interface Filters {
   name?: any;
@@ -67,6 +70,246 @@ export const getSingleBrand = async (
     }
 
     return response.status(200).json(brand);
+  } catch (error: any) {
+    console.log('[BRAND_FETCH_ERROR]', error);
+    return response.status(500).json({ error: 'Internal Server Error' });
+  }
+};
+
+export const addBrand = async (
+  request: express.Request,
+  response: express.Response
+) => {
+  upload.single('brand_logo')(request, response, async (error) => {
+    if (
+      error?.code === 'LIMIT_FILE_COUNT' ||
+      error?.code === 'LIMIT_UNEXPECTED_FILE'
+    ) {
+      return response.status(400).json({
+        error: 'Product image should be a single file',
+        errorCode: error?.code,
+        //  errorMessage: error?.message,
+      });
+    }
+
+    if (error) {
+      return response.status(500).json({ error: error.message });
+    }
+
+    // @ts-ignore
+    if (!request.file) {
+      return response.status(400).json({
+        error: 'Please supply the required product fields.',
+      });
+    }
+
+    const brand = request.body;
+
+    console.log(brand);
+
+    const { name, brand_logo } = brand;
+
+    // @ts-ignore
+    const brandLogo = request.file;
+
+    if (!name || !brandLogo) {
+      return response.status(400).json({
+        error: 'Please supply the required product fields.',
+      });
+    }
+
+    try {
+      const addedBrand = Brand.create({
+        name,
+        // brand_logo: `http://localhost:5000/public/assets/brands/${brandLogo?.filename}`,
+        brand_logo: `http://localhost:5000/public/assets/${brandLogo?.filename}`,
+      });
+
+      return response.status(201).json(addedBrand);
+    } catch (error: any) {
+      console.log('[BRAND_CREATION_ERROR]', error);
+      return response.status(500).json({ error: 'Internal Server Error' });
+    }
+  });
+};
+
+interface Updates {
+  name?: string;
+  brand_logo?: string;
+}
+
+export const updateBrand = async (
+  request: express.Request,
+  response: express.Response
+) => {
+  upload.single('brand_logo')(request, response, async (error) => {
+    if (
+      error?.code === 'LIMIT_FILE_COUNT' ||
+      error?.code === 'LIMIT_UNEXPECTED_FILE'
+    ) {
+      return response.status(400).json({
+        error: 'Brand image should be a single file',
+        errorCode: error?.code,
+      });
+    }
+
+    if (error) {
+      return response.status(500).json({ error: error.message });
+    }
+
+    const { id } = request.params;
+    const { name, brand_logo } = request.body;
+    const brandLogo = request.file;
+
+    if (!mongoose.isValidObjectId(id)) {
+      return response.status(400).json({ error: 'Invalid Brand ID' });
+    }
+
+    // check if brand exist
+    try {
+      const brandExists = await Brand.findById(id);
+
+      if (!brandExists) {
+        return response
+          .status(404)
+          .json({ error: 'Brand with the supplied ID does not exist' });
+      }
+
+      if (!name || !brandLogo) {
+        return response
+          .status(400)
+          .json({ error: 'No field to be edited was supplied' });
+      }
+
+      // build updates based on body data
+      const updates: Updates = {};
+
+      if (name) {
+        updates.name = name;
+      }
+
+      if (brandLogo) {
+        updates.brand_logo = `http://localhost:5000/public/assets/${brandLogo?.filename}`;
+      }
+
+      console.log(updates);
+
+      try {
+        const session = await mongoose.startSession();
+
+        try {
+          const transactionResult = session.withTransaction(async () => {
+            const updatedProduct = await Brand.findByIdAndUpdate(id, updates, {
+              new: true,
+              session,
+            });
+
+            const imageUrls = [brandExists.brand_logo];
+
+            const filePaths = imageUrls.map(
+              // (filePath) => `src/assets/products/${getImageName(filePath)}`
+              (filePath) => `src/assets/${getImageName(filePath)}`
+            );
+
+            const promises = filePaths.map((filePath) => {
+              return new Promise((resolve, reject) => {
+                fs.unlink(filePath, (error) => {
+                  if (error) {
+                    reject(error);
+                  } else {
+                    resolve('');
+                  }
+                });
+              });
+            });
+
+            await Promise.all(promises);
+
+            return response.status(200).json(updatedProduct);
+          });
+
+          return transactionResult;
+        } catch (error: any) {
+          console.log('[TRANSACTION_ERROR]', error);
+          return response.status(500).json({ error: 'Internal Server Error' });
+        } finally {
+          await session.endSession();
+        }
+      } catch (error: any) {
+        console.log('[SESSION_START_ERROR]', error);
+        return response.status(500).json({ error: 'Internal Server Error' });
+      }
+    } catch (error: any) {
+      console.log('[BRAND_FETCH_ERROR]', error);
+      return response.status(500).json({ error: 'Internal Server Error' });
+    }
+  });
+};
+
+export const deleteBrand = async (
+  request: express.Request,
+  response: express.Response
+) => {
+  const { id } = request.params;
+
+  if (!mongoose.isValidObjectId(id)) {
+    return response.status(400).json({ error: 'Invalid Brand ID' });
+  }
+
+  // check if brand exists
+  try {
+    const brandExists = await Brand.findById(id);
+
+    if (!brandExists) {
+      return response
+        .status(404)
+        .json({ error: 'Brand with the supplied ID does not exist' });
+    }
+
+    try {
+      const session = await mongoose.startSession();
+
+      try {
+        const transactionResult = await session.withTransaction(async () => {
+          await Brand.findByIdAndDelete(id, { session });
+
+          const imageUrls = [brandExists.brand_logo];
+
+          const filePaths = imageUrls.map(
+            // (filePath) => `src/assets/brands/${getImageName(filePath)}`
+            (filePath) => `src/assets/${getImageName(filePath)}`
+          );
+
+          const promises = filePaths.map((filePath) => {
+            return new Promise((resolve, reject) => {
+              fs.unlink(filePath, (error) => {
+                if (error) {
+                  reject(error);
+                } else {
+                  resolve('');
+                }
+              });
+            });
+          });
+
+          await Promise.all(promises);
+
+          return response
+            .status(200)
+            .json({ message: 'Brand deleted successfully' });
+        });
+
+        return transactionResult;
+      } catch (error: any) {
+        console.log('[TRANSACTION_ERROR]', error);
+        return response.status(500).json({ error: 'Internal Server Error' });
+      } finally {
+        await session.endSession();
+      }
+    } catch (error: any) {
+      console.log('[SESSION_START_ERROR]', error);
+      return response.status(500).json({ error: 'Internal Server Error' });
+    }
   } catch (error: any) {
     console.log('[BRAND_FETCH_ERROR]', error);
     return response.status(500).json({ error: 'Internal Server Error' });

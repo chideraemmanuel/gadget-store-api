@@ -278,7 +278,8 @@ export const addProduct = async (
         description,
         price,
         category,
-        product_image: `http://localhost:5000/public/assets/products/${productImage?.filename}`,
+        // product_image: `http://localhost:5000/public/assets/products/${productImage?.filename}`,
+        product_image: `http://localhost:5000/public/assets/${productImage?.filename}`,
         //  other_images: otherImages,
         count_in_stock: count_in_stock as number,
         featured,
@@ -431,7 +432,8 @@ export const updateProduct = async (
       if (request.file) {
         // @ts-ignore
         const mainImage = request.file;
-        updates.product_image = `http://localhost:5000/public/assets/products/${mainImage?.filename}`;
+        // updates.product_image = `http://localhost:5000/public/assets/products/${mainImage?.filename}`;
+        updates.product_image = `http://localhost:5000/public/assets/${mainImage?.filename}`;
       }
       // @ts-ignore
       // if (request.files?.other_images) {
@@ -484,7 +486,8 @@ export const updateProduct = async (
             const imageUrls = [productExists.product_image];
 
             const filePaths = imageUrls.map(
-              (filePath) => `src/assets/products/${getImageName(filePath)}`
+              // (filePath) => `src/assets/products/${getImageName(filePath)}`
+              (filePath) => `src/assets/${getImageName(filePath)}`
             );
 
             const promises = filePaths.map((filePath) => {
@@ -514,7 +517,7 @@ export const updateProduct = async (
       } catch (error: any) {
         console.log('[SESSION_START_ERROR]', error);
         return response.status(500).json({ error: 'Internal Server Error' });
-      } // end session
+      }
     } catch (error: any) {
       console.log('[PRODUCT_FETCH_ERROR]', error);
       return response.status(500).json({ error: 'Internal Server Error' });
@@ -558,7 +561,8 @@ export const deleteProduct = async (
           const imageUrls = [productExists.product_image];
 
           const filePaths = imageUrls.map(
-            (filePath) => `src/assets/products/${getImageName(filePath)}`
+            // (filePath) => `src/assets/products/${getImageName(filePath)}`
+            (filePath) => `src/assets/${getImageName(filePath)}`
           );
 
           const promises = filePaths.map((filePath) => {

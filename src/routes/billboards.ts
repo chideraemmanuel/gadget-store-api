@@ -5,7 +5,7 @@ import {
   getBillboards,
   getSingleBillboard,
   updateBillboard,
-} from '../controllers/billboard';
+} from '../controllers/billboards';
 import { authorize } from '../middlewares/auth';
 
 const router = express.Router();

@@ -6,7 +6,7 @@ import upload from '../config/multer';
 import fs from 'fs';
 import getImageName from '../lib/helpers/getImageName';
 
-interface GetQueryParams {
+interface Filters {
   name?: any;
   head_text?: any;
   paragraph?: any;
@@ -27,7 +27,7 @@ export const getBillboards = async (
   }
 
   // build filters based on query params
-  const filter: GetQueryParams = {};
+  const filter: Filters = {};
 
   if (search_query) {
     filter.name = { $regex: search_query as string, $options: 'i' };

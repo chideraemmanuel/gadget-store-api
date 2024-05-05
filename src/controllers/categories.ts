@@ -3,12 +3,25 @@ import Category from '../models/category';
 import mongoose from 'mongoose';
 import Billboard from '../models/billboard';
 
+interface Filters {
+  name?: any;
+}
+
 export const getCategories = async (
   request: express.Request,
   response: express.Response
 ) => {
+  const { search_query } = request.query;
+
+  const filter: Filters = {};
+
+  if (search_query) {
+    filter.name = { $regex: search_query as string, $options: 'i' };
+  }
+
   try {
-    const categories = await Category.find();
+    const categories = await Category.find(filter);
+
     return response.status(200).json(categories);
   } catch (error: any) {
     console.log('[CATEGORIES_FETCH_ERROR]', error);

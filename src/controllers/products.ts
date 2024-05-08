@@ -187,7 +187,7 @@ export const addProduct = async (
 
     const product = request.body;
 
-    console.log('product', product);
+    // console.log('product', JSON.parse(product));
 
     const {
       product_name,
@@ -231,11 +231,27 @@ export const addProduct = async (
     }
 
     // CHECK IF FEATURED IS A BOOLEAN
-    if (typeof featured !== 'boolean') {
-      return response
-        .status(400)
-        .json({ error: 'Featured should be a boolean value' });
+    // if (typeof featured !== 'boolean') {
+    //   return response
+    //     .status(400)
+    //     .json({ error: 'Featured should be a boolean value' });
+    // }
+
+    let isFeatured;
+
+    if (featured !== undefined) {
+      if (featured === 'true') {
+        isFeatured = true;
+      } else if (featured === 'false') {
+        isFeatured = false;
+      } else {
+        return response
+          .status(400)
+          .json({ error: 'Featured should be a boolean value' });
+      }
     }
+
+    console.log('is featured', isFeatured);
 
     // CHECK IF PRICE IS A NUMBER
     if (isNaN(price)) {
@@ -282,7 +298,7 @@ export const addProduct = async (
         product_image: `http://localhost:5000/public/assets/${productImage?.filename}`,
         //  other_images: otherImages,
         count_in_stock: count_in_stock as number,
-        featured,
+        featured: isFeatured,
       });
       return response.status(201).json(addedProduct);
     } catch (error: any) {
@@ -472,8 +488,9 @@ export const updateProduct = async (
       try {
         const session = await mongoose.startSession();
 
+        console.log('cp 1');
         try {
-          const transactionResult = session.withTransaction(async () => {
+          const transactionResult = await session.withTransaction(async () => {
             const updatedProduct = await Product.findByIdAndUpdate(
               id,
               updates,
@@ -482,6 +499,8 @@ export const updateProduct = async (
                 session,
               }
             );
+
+            console.log('cp 2');
 
             const imageUrls = [productExists.product_image];
 
@@ -503,6 +522,8 @@ export const updateProduct = async (
             });
 
             await Promise.all(promises);
+
+            console.log('cp 3');
 
             return response.status(200).json(updatedProduct);
           });

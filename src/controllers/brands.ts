@@ -41,12 +41,14 @@ export const getBrands = async (
 
     // return pagiationResponse;
 
-    const brands = Brand.find(filter);
+    const brands = await Brand.find(filter);
 
     return response.status(200).json(brands);
   } catch (error: any) {
-    console.log('[DATABASE_SEARCH_ERROR]', error);
-    return response.status(500).json({ error: 'Internal Server Error' });
+    console.log('[DATABASE_SEARCH_ERROR]', error.message);
+    return response
+      .status(500)
+      .json({ error: 'Internal Server Error', m: error.message });
   }
 };
 
@@ -119,7 +121,7 @@ export const addBrand = async (
     }
 
     try {
-      const addedBrand = Brand.create({
+      const addedBrand = await Brand.create({
         name,
         // brand_logo: `http://localhost:5000/public/assets/brands/${brandLogo?.filename}`,
         brand_logo: `http://localhost:5000/public/assets/${brandLogo?.filename}`,

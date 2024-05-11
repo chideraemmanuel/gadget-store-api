@@ -10,6 +10,7 @@ import { port } from '../index';
 import fs from 'fs';
 import paginateQuery from '../lib/helpers/paginateQuery';
 import getImageName from '../lib/helpers/getImageName';
+import Brand from '../models/brand';
 
 interface GetQueryParams {
   product_name?: any;
@@ -143,7 +144,8 @@ export const getSingleProduct = async (
   }
 
   try {
-    const product = await Product.findById(id).populate('category');
+    // const product = await Product.findById(id).populate('category');
+    const product = await Product.findById(id);
 
     if (!product) {
       return response
@@ -265,18 +267,46 @@ export const addProduct = async (
         .json({ error: 'Count in stock should be a number' });
     }
 
-    // CHECK IF CATEGORY ID IS VALID
-    if (!mongoose.isValidObjectId(category)) {
-      return response.status(400).json({ error: 'Invalid Object ID' });
+    if (brand) {
+      // CHECK IF BRAND ID IS VALID
+      if (!mongoose.isValidObjectId(brand)) {
+        return response.status(400).json({ error: 'Invalid Brand ID' });
+      }
+
+      // CHECK IF BRAND EXISTS
+      try {
+        const brandExists = await Brand.findById(brand);
+
+        if (!brandExists) {
+          return response.status(404).json({
+            error: 'Brand with the provided ID does not exist.',
+          });
+        }
+      } catch (error: any) {
+        console.log('[BRAND_FETCH_ERROR]', error);
+        return response.status(500).json({ error: 'Internal Server Error' });
+      }
     }
 
-    // CHECK IF CATEGORY EXISTS
-    const categoryExists = await Category.findById(category);
+    if (category) {
+      // CHECK IF CATEGORY ID IS VALID
+      if (!mongoose.isValidObjectId(category)) {
+        return response.status(400).json({ error: 'Invalid Category ID' });
+      }
 
-    if (!categoryExists) {
-      return response
-        .status(404)
-        .json({ error: 'Category with the provided ID does not exist.' });
+      // CHECK IF CATEGORY EXISTS
+      try {
+        const categoryExists = await Category.findById(category);
+
+        if (!categoryExists) {
+          return response.status(404).json({
+            error: 'Category with the provided ID does not exist.',
+          });
+        }
+      } catch (error: any) {
+        console.log('[CATEGORY_FETCH_ERROR]', error);
+        return response.status(500).json({ error: 'Internal Server Error' });
+      }
     }
 
     try {
@@ -297,7 +327,8 @@ export const addProduct = async (
         // product_image: `http://localhost:5000/public/assets/products/${productImage?.filename}`,
         product_image: `http://localhost:5000/public/assets/${productImage?.filename}`,
         //  other_images: otherImages,
-        count_in_stock: count_in_stock as number,
+        // count_in_stock: count_in_stock as number,
+        count_in_stock,
         featured: isFeatured,
       });
       return response.status(201).json(addedProduct);
@@ -401,10 +432,6 @@ export const updateProduct = async (
         updates.product_name = product_name;
       }
 
-      if (brand) {
-        updates.brand = brand;
-      }
-
       if (description) {
         updates.description = description;
       }
@@ -434,13 +461,25 @@ export const updateProduct = async (
       // console.log('featured', featured);
       // console.log('type of featured', typeof featured);
 
+      // if (featured !== undefined) {
+      //   if (typeof featured !== 'boolean') {
+      //     return response
+      //       .status(400)
+      //       .json({ error: 'Featured should be a boolean' });
+      //   } else {
+      //     updates.featured = featured;
+      //   }
+      // }
+
       if (featured !== undefined) {
-        if (typeof featured !== 'boolean') {
+        if (featured === 'true') {
+          updates.featured = true;
+        } else if (featured === 'false') {
+          updates.featured = false;
+        } else {
           return response
             .status(400)
-            .json({ error: 'Featured should be a boolean' });
-        } else {
-          updates.featured = featured;
+            .json({ error: 'Featured should be a boolean value' });
         }
       }
 
@@ -459,6 +498,29 @@ export const updateProduct = async (
       //   });
       //   updates.other_images = otherImages;
       // }
+
+      if (brand) {
+        // CHECK IF BRAND ID IS VALID
+        if (!mongoose.isValidObjectId(brand)) {
+          return response.status(400).json({ error: 'Invalid Brand ID' });
+        }
+
+        // CHECK IF BRAND EXISTS
+        try {
+          const brandExists = await Brand.findById(brand);
+
+          if (!brandExists) {
+            return response.status(404).json({
+              error: 'Brand with the provided ID does not exist.',
+            });
+          }
+
+          updates.brand = brand;
+        } catch (error: any) {
+          console.log('[BRAND_FETCH_ERROR]', error);
+          return response.status(500).json({ error: 'Internal Server Error' });
+        }
+      }
 
       if (category) {
         // CHECK IF CATEGORY ID IS VALID

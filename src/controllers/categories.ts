@@ -29,6 +29,32 @@ export const getCategories = async (
   }
 };
 
+export const getSingleCategory = async (
+  request: express.Request,
+  response: express.Response
+) => {
+  const { id } = request.params;
+
+  if (!mongoose.isValidObjectId(id)) {
+    return response.status(400).json({ error: 'Invalid category ID' });
+  }
+
+  try {
+    const category = await Category.findById(id);
+
+    if (!category) {
+      return response
+        .status(404)
+        .json({ error: 'Category with the supplied category does not exist' });
+    }
+
+    return response.status(200).json(category);
+  } catch (error: any) {
+    console.log('[CATEGORY_FETCH_ERROR]', error);
+    return response.status(500).json({ error: 'Internal Server Error' });
+  }
+};
+
 export const addCategory = async (
   request: express.Request,
   response: express.Response

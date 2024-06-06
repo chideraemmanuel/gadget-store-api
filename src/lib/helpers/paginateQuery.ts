@@ -32,7 +32,8 @@ const paginateQuery = async ({
   limit,
 }: Params) => {
   const pageNumber = page || 1;
-  const limitNumber = limit || 10;
+  // set max limit to 50
+  const limitNumber = !limit ? 20 : limit > 50 ? 50 : limit;
 
   try {
     const data = await model
@@ -41,7 +42,29 @@ const paginateQuery = async ({
       .limit(limitNumber)
       .exec();
 
-    return response.status(200).json(data);
+    // total_records
+    const total_records = await model.countDocuments();
+    // total_pages
+    const total_pages = Math.ceil(total_records / limitNumber);
+    // current_page
+    const current_page = pageNumber;
+    // previous_page
+    const previous_page = pageNumber === 1 ? null : pageNumber - 1;
+    // next_page
+    const next_page = pageNumber === total_pages ? null : pageNumber + 1;
+
+    const result = {
+      data,
+      pagination: {
+        total_records,
+        total_pages,
+        current_page,
+        previous_page,
+        next_page,
+      },
+    };
+
+    return response.status(200).json(result);
   } catch (error: any) {
     console.log('[PAGINATION_ERROR]', error);
     return response.status(500).json({ error: 'Internal Server Error' });

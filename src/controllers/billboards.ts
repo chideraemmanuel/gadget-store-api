@@ -36,14 +36,18 @@ export const getBillboards = async (
   }
 
   try {
-    const pagiationResponse = await paginateQuery({
-      model: Billboard,
-      response,
-      page: parseInt(page as string),
-      limit: parseInt(limit as string),
-    });
+    // const pagiationResponse = await paginateQuery({
+    //   model: Billboard,
+    //   response,
+    //   page: parseInt(page as string),
+    //   limit: parseInt(limit as string),
+    // });
 
-    return pagiationResponse;
+    // return pagiationResponse;
+
+    const billboards = await Billboard.find(filter);
+
+    return response.status(200).json(billboards);
   } catch (error: any) {
     console.log('[DATABASE_SEARCH_ERROR]', error);
     return response.status(500).json({ error: 'Internal Server Error' });
@@ -85,10 +89,12 @@ export const createBillboard = async (
       error?.code === 'LIMIT_FILE_COUNT' ||
       error?.code === 'LIMIT_UNEXPECTED_FILE'
     ) {
+      console.log(error);
+      // console.log(error?.message)
       return response.status(400).json({
         error: 'Billboard image should be a single file',
         errorCode: error?.code,
-        //  errorMessage: error?.message,
+        errorMessage: error?.message,
       });
     }
 

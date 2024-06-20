@@ -12,7 +12,8 @@ export const getUser = async (
   // const { token } = request.cookies;
   const token = request.cookies.token;
   //   @ts-ignore
-  const user = request.user;
+
+  const user = request.user; // COMES FROM AUTHENTICATE() MIDDLEWARE
 
   return response.status(200).json({
     id: user._id,
@@ -36,7 +37,7 @@ export const updateUser = async (
   const token = request.cookies.token;
   const { first_name, last_name } = request.body;
   // @ts-ignore
-  const user = request.user;
+  const user = request.user; // COMES FROM AUTHENTICATE MIDDLEWARE
 
   if (!first_name && !last_name) {
     return response
@@ -76,7 +77,7 @@ export const getUserOrders = async (
   response: express.Response
 ) => {
   // @ts-ignore
-  const user = request.user;
+  const user = request.user; // COMES FROM AUTHENTICATE MIDDLEWARE
   const { status, page, limit } = request.query;
 
   if (page && isNaN(page as any)) {
@@ -133,23 +134,21 @@ export const getSingleUserOrder = async (
   response: express.Response
 ) => {
   // @ts-ignore
-  const user = request.user
-  const { id } = request.params
+  const user = request.user; // COMES FROM AUTHENTICATE MIDDLEWARE
+  const { id } = request.params;
 
   if (!mongoose.isValidObjectId(id)) {
-    return response.status(400).json({ error: 'Invalid Order Id'})
+    return response.status(400).json({ error: 'Invalid Order Id' });
   }
 
   try {
-    const order = Order.findOne({ user: user._id, _id: id})
+    const order = Order.findOne({ user: user._id, _id: id });
 
-    if(!order) {
-      return response.status(404).json({ error: 'Order not found'})
+    if (!order) {
+      return response.status(404).json({ error: 'Order not found' });
     }
-
-    
   } catch (error: any) {
-    console.log('[ORDER_FETCH_ERROR]', error)
-    return response.status(500).json({ error: 'Internal Server Error'})
+    console.log('[ORDER_FETCH_ERROR]', error);
+    return response.status(500).json({ error: 'Internal Server Error' });
   }
 };

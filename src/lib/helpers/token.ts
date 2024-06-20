@@ -8,6 +8,8 @@ export const generateToken = (data: any) => {
 
 // export const verifyToken = (token: string) => {
 //   let error: string | null = null;
+//   let data: string | null = null;
+
 //   const decoded = jwt.verify(token, process.env.JWT_SECRET!, (err, decoded) => {
 //     if (err instanceof TokenExpiredError) {
 //       error = 'Token has expired'
@@ -16,9 +18,11 @@ export const generateToken = (data: any) => {
 //       error = 'Invalid token'
 //       return
 //     }
+
+//     data = decoded as string
 //   })
 
-//   return { decoded, error }
+//   return { data, error }
 // }
 
 export const verifyToken = async (token: string) => {

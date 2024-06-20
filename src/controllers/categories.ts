@@ -2,6 +2,7 @@ import express from 'express';
 import Category from '../models/category';
 import mongoose from 'mongoose';
 import Billboard from '../models/billboard';
+import paginateQuery from '../lib/helpers/paginateQuery';
 
 interface Filters {
   name?: any;
@@ -11,12 +12,44 @@ export const getCategories = async (
   request: express.Request,
   response: express.Response
 ) => {
-  const { search_query } = request.query;
+  const { search_query, paginated, page, limit } = request.query;
+
+  if (page && isNaN(page as any)) {
+    return response.status(400).json({ error: 'Page should be a number.' });
+  }
+
+  if (limit && isNaN(limit as any)) {
+    return response.status(400).json({ error: 'Limit should be a number.' });
+  }
 
   const filter: Filters = {};
 
   if (search_query) {
     filter.name = { $regex: search_query as string, $options: 'i' };
+  }
+
+  // paginate query only if paginated is part of the query params
+  if (paginated) {
+    if (paginated !== 'true' && paginated !== 'false') {
+      return response
+        .status(400)
+        .json({ error: 'Paginated must be a boolean value' });
+    }
+
+    try {
+      const paginationResponse = await paginateQuery({
+        model: Category,
+        response,
+        filter,
+        page: parseInt(page as string),
+        limit: parseInt(limit as string),
+      });
+
+      return paginationResponse;
+    } catch (error: any) {
+      console.log('[DATABASE_SEARCH_ERROR]', error);
+      return response.status(500).json({ error: 'Internal Server Error' });
+    }
   }
 
   try {
@@ -145,7 +178,7 @@ export const updateCategory = async (
   const { id } = request.params;
   const { name, billboard } = request.body;
 
-  if (!name || !billboard) {
+  if (!name && !billboard) {
     return response
       .status(400)
       .json({ error: 'No field to be edited was supplied' });
@@ -155,7 +188,7 @@ export const updateCategory = async (
     return response.status(400).json({ error: 'Invalid category ID' });
   }
 
-  if (!mongoose.isValidObjectId(billboard)) {
+  if (billboard && !mongoose.isValidObjectId(billboard)) {
     return response.status(400).json({ error: 'Invalid billboard ID' });
   }
 
@@ -183,7 +216,7 @@ export const updateCategory = async (
       const updates: Updates = {};
 
       if (name) {
-        updates.name = name;
+        updates.name = name.toLowerCase();
       }
 
       if (billboard) {

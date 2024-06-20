@@ -41,7 +41,7 @@ export const registerUser = async (
               last_name,
               email,
               password: hashedPassword,
-              auth_type: 'MANUAL',
+              auth_type: 'MANUAL_AUTH_SERVICE',
             },
           ],
           { session }
@@ -123,7 +123,7 @@ export const loginUser = async (
         .json({ error: 'No user with the supplied email' });
     }
 
-    if (userExists?.auth_type === 'GOOGLE') {
+    if (userExists?.auth_type === 'GOOGLE_AUTH_SERVICE') {
       return response.status(400).json({
         error:
           'Account already verified with Google. Sign in with Google instead.',
@@ -319,7 +319,7 @@ export const loginAdmin = async (
         .json({ error: 'Forbidden - Admin access required' });
     }
 
-    if (userExists?.auth_type === 'GOOGLE') {
+    if (userExists?.auth_type === 'GOOGLE_AUTH_SERVICE') {
       return response.status(400).json({
         error:
           'Account already verified with Google. Sign in with Google instead.',
@@ -370,7 +370,7 @@ export const getCurrentAdmin = async (
 ) => {
   const { admin_token } = request.cookies;
   // const admin_token2 = request.cookies.admin_token;
-  // console.log(admin_token);
+  console.log('admin token:', admin_token);
   // console.log(admin_token2);
 
   if (!admin_token) {

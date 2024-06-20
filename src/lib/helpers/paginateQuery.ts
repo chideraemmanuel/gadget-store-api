@@ -51,7 +51,10 @@ const paginateQuery = async ({
     // previous_page
     const previous_page = pageNumber === 1 ? null : pageNumber - 1;
     // next_page
-    const next_page = pageNumber === total_pages ? null : pageNumber + 1;
+    const next_page =
+      total_pages === 0 || pageNumber === total_pages ? null : pageNumber + 1;
+
+    console.log('data', data);
 
     const result = {
       data,
@@ -63,6 +66,8 @@ const paginateQuery = async ({
         next_page,
       },
     };
+
+    console.log('returned result', result);
 
     return response.status(200).json(result);
   } catch (error: any) {

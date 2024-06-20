@@ -68,13 +68,34 @@ export const getProducts = async (
       filter.category = storedCategory?._id;
     } catch (error: any) {
       console.log('[CATEGORY_FETCH_ERROR]', error);
+      return response.status(500).json({ error: 'Internal Server Error' });
     }
   }
 
   if (brand) {
     // filter.brand = brand.toString();
-    filter.brand = { $regex: brand as string, $options: 'i' };
+    // filter.brand = { $regex: brand as string, $options: 'i' };
     // filter.brand = { $regex: new RegExp(brand.toString(), 'i') };
+
+    const isValidId = mongoose.isValidObjectId(brand);
+
+    try {
+      // const storedCategory = await Category.findOne({
+      //   $or: [{ name: category }, { _id: category }],
+      // });
+      const storedBrand = isValidId
+        ? await Category.findById(category)
+        : await Category.findOne({ name: category });
+
+      if (!storedBrand) {
+        return response.status(404).json({ error: 'Category does not exist' });
+      }
+
+      filter.brand = storedBrand?._id;
+    } catch (error: any) {
+      console.log('[BRAND_FETCH_ERROR]', error);
+      return response.status(500).json({ error: 'Internal Server Error' });
+    }
   }
 
   if (price_range) {
@@ -391,6 +412,24 @@ export const updateProduct = async (
     } = request.body;
 
     if (!mongoose.isValidObjectId(id)) {
+      // IF PRODUCT ID IS INVALID, DELETE ALREADY UPLOADED IMAGE, IF ANY
+      if (request.file) {
+        try {
+          await new Promise((resolve, reject) => {
+            fs.unlink(request.file?.filename!, (error) => {
+              if (error) {
+                reject(error);
+              } else {
+                resolve('');
+              }
+            });
+          });
+        } catch (error: any) {
+          console.log('PREVIOUS_IMAGE_DELETION_ERROR', error);
+          return response.status(500).json({ error: 'Internal Server Error' });
+        }
+      }
+
       return response.status(400).json({ error: 'Invalid Product ID' });
     }
 
@@ -399,6 +438,26 @@ export const updateProduct = async (
       const productExists = await Product.findById(id);
 
       if (!productExists) {
+        // IF PRODUCT DOES NOT EXIST, DELETE ALREADY UPLOADED IMAGE, IF ANY
+        if (request.file) {
+          try {
+            await new Promise((resolve, reject) => {
+              fs.unlink(request.file?.filename!, (error) => {
+                if (error) {
+                  reject(error);
+                } else {
+                  resolve('');
+                }
+              });
+            });
+          } catch (error: any) {
+            console.log('PREVIOUS_IMAGE_DELETION_ERROR', error);
+            return response
+              .status(500)
+              .json({ error: 'Internal Server Error' });
+          }
+        }
+
         return response
           .status(404)
           .json({ error: 'Product with the supplied ID does not exist.' });
@@ -483,9 +542,35 @@ export const updateProduct = async (
         }
       }
 
-      // @ts-ignore
       if (request.file) {
-        // @ts-ignore
+        // // IF A NEW IMAGE IS UPLOADED, DELETE PREVIOUSLY UPLOADED IMAGE, IF ANY
+        // const imageUrls = [productExists.product_image];
+
+        // const filePaths = imageUrls.map(
+        //   // (imageUrl) => `src/assets/products/${getImageName(imageUrl)}`
+        //   (imageUrl) => `src/assets/${getImageName(imageUrl)}`
+        // );
+
+        // try {
+        //   const promises = filePaths.map((filePath) => {
+        //     return new Promise((resolve, reject) => {
+        //       fs.unlink(filePath, (error) => {
+        //         if (error) {
+        //           reject(error);
+        //         } else {
+        //           resolve('');
+        //         }
+        //       });
+        //     });
+        //   });
+
+        //   await Promise.all(promises);
+
+        // } catch (error: any) {
+        //   console.log('PREVIOUS_IMAGE_DELETION_ERROR', error);
+        //   return response.status(500).json({ error: 'Internal Server Error' });
+        // }
+
         const mainImage = request.file;
         // updates.product_image = `http://localhost:5000/public/assets/products/${mainImage?.filename}`;
         updates.product_image = `http://localhost:5000/public/assets/${mainImage?.filename}`;
@@ -550,9 +635,32 @@ export const updateProduct = async (
       try {
         const session = await mongoose.startSession();
 
-        console.log('cp 1');
         try {
           const transactionResult = await session.withTransaction(async () => {
+            if (updates.product_image) {
+              // IF A NEW IMAGE IS UPLOADED, DELETE PREVIOUSLY UPLOADED IMAGE, IF ANY
+              const imageUrls = [productExists.product_image];
+
+              const filePaths = imageUrls.map(
+                // (imageUrl) => `src/assets/products/${getImageName(imageUrl)}`
+                (imageUrl) => `src/assets/${getImageName(imageUrl)}`
+              );
+
+              const promises = filePaths.map((filePath) => {
+                return new Promise((resolve, reject) => {
+                  fs.unlink(filePath, (error) => {
+                    if (error) {
+                      reject(error);
+                    } else {
+                      resolve('');
+                    }
+                  });
+                });
+              });
+
+              await Promise.all(promises);
+            }
+
             const updatedProduct = await Product.findByIdAndUpdate(
               id,
               updates,
@@ -561,31 +669,6 @@ export const updateProduct = async (
                 session,
               }
             );
-
-            console.log('cp 2');
-
-            const imageUrls = [productExists.product_image];
-
-            const filePaths = imageUrls.map(
-              // (filePath) => `src/assets/products/${getImageName(filePath)}`
-              (filePath) => `src/assets/${getImageName(filePath)}`
-            );
-
-            const promises = filePaths.map((filePath) => {
-              return new Promise((resolve, reject) => {
-                fs.unlink(filePath, (error) => {
-                  if (error) {
-                    reject(error);
-                  } else {
-                    resolve('');
-                  }
-                });
-              });
-            });
-
-            await Promise.all(promises);
-
-            console.log('cp 3');
 
             return response.status(200).json(updatedProduct);
           });
@@ -644,8 +727,8 @@ export const deleteProduct = async (
           const imageUrls = [productExists.product_image];
 
           const filePaths = imageUrls.map(
-            // (filePath) => `src/assets/products/${getImageName(filePath)}`
-            (filePath) => `src/assets/${getImageName(filePath)}`
+            // (imageUrl) => `src/assets/products/${getImageName(imageUrl)}`
+            (imageUrl) => `src/assets/${getImageName(imageUrl)}`
           );
 
           const promises = filePaths.map((filePath) => {

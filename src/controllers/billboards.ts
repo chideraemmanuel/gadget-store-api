@@ -7,16 +7,16 @@ import fs from 'fs';
 import getImageName from '../lib/helpers/getImageName';
 
 interface Filters {
-  name?: any;
-  head_text?: any;
-  paragraph?: any;
+  // name?: any;
+  // head_text?: any;
+  // paragraph?: any;
 }
 
 export const getBillboards = async (
   request: express.Request,
   response: express.Response
 ) => {
-  const { search_query, page, limit } = request.query;
+  const { search_query, paginated, page, limit } = request.query;
 
   if (page && isNaN(page as any)) {
     return response.status(400).json({ error: 'Page should be a number.' });
@@ -28,24 +28,53 @@ export const getBillboards = async (
 
   // build filters based on query params
   const filter: Filters = {};
+  let search;
 
   if (search_query) {
-    filter.name = { $regex: search_query as string, $options: 'i' };
+    // filter.name = { $regex: search_query as string, $options: 'i' };
     // filter.head_text = { $regex: search_query as string, $options: 'i' };
     // filter.paragraph = { $regex: search_query as string, $options: 'i' };
+
+    const searchExpression = {
+      $or: [
+        { name: { $regex: search_query as string, $options: 'i' } },
+        { head_text: { $regex: search_query as string, $options: 'i' } },
+        { paragraph: { $regex: search_query as string, $options: 'i' } },
+      ],
+    };
+
+    search = searchExpression;
+  }
+
+  // paginate query only if paginated is part of the query params
+  if (paginated) {
+    if (paginated !== 'true' && paginated !== 'false') {
+      return response
+        .status(400)
+        .json({ error: 'Paginated must be a boolean value' });
+    }
+
+    if (paginated === 'true') {
+      try {
+        const paginationResponse = await paginateQuery({
+          model: Billboard,
+          response,
+          filter: { ...search, ...filter },
+          page: parseInt(page as string),
+          limit: parseInt(limit as string),
+        });
+
+        return paginationResponse;
+      } catch (error: any) {
+        console.log('[DATABASE_SEARCH_ERROR]', error);
+        return response.status(500).json({ error: 'Internal Server Error' });
+      }
+    }
   }
 
   try {
-    // const pagiationResponse = await paginateQuery({
-    //   model: Billboard,
-    //   response,
-    //   page: parseInt(page as string),
-    //   limit: parseInt(limit as string),
-    // });
-
-    // return pagiationResponse;
-
-    const billboards = await Billboard.find(filter);
+    // const billboards = await Billboard.find(filter);
+    const billboards = await Billboard.find({ ...search, ...filter });
 
     return response.status(200).json(billboards);
   } catch (error: any) {
@@ -173,7 +202,11 @@ export const updateBillboard = (
     const { id } = request.params;
     const billboard = request.body;
 
+    console.log(billboard);
+
     const { name, head_text, paragraph, billboard_image } = billboard;
+
+    console.log(name);
 
     if (!mongoose.isValidObjectId(id)) {
       return response.status(400).json({ error: 'Invalid Billboard ID' });
@@ -189,7 +222,7 @@ export const updateBillboard = (
           .json({ error: 'Billboard with the supplied ID does not exist' });
       }
 
-      if (!name || !head_text || paragraph || !request.file) {
+      if (!name && !head_text && !paragraph && !request.file) {
         return response
           .status(400)
           .json({ error: 'No field to be edited was supplied' });
@@ -224,32 +257,35 @@ export const updateBillboard = (
 
         try {
           const transactionResult = await session.withTransaction(async () => {
+            if (updates.billboard_image) {
+              // IF A NEW IMAGE IS UPLOADED, DELETE PREVIOUSLY UPLOADED IMAGE, IF ANY
+              const imageUrls = [billboardExists.billboard_image];
+
+              const filePaths = imageUrls.map(
+                // (imageUrl) => `src/assets/billboards/${getImageName(imageUrl)}`
+                (imageUrl) => `src/assets/${getImageName(imageUrl)}`
+              );
+
+              const promises = filePaths.map((filePath) => {
+                return new Promise((resolve, reject) => {
+                  fs.unlink(filePath, (error) => {
+                    if (error) {
+                      reject(error);
+                    } else {
+                      resolve('');
+                    }
+                  });
+                });
+              });
+
+              await Promise.all(promises);
+            }
+
             const updatedBillboard = await Billboard.findByIdAndUpdate(
               id,
               updates,
               { new: true, session }
             );
-
-            const imageUrls = [billboardExists.billboard_image];
-
-            const filePaths = imageUrls.map(
-              // (filePath) => `src/assets/billboards/${getImageName(filePath)}`
-              (filePath) => `src/assets/${getImageName(filePath)}`
-            );
-
-            const promises = filePaths.map((filePath) => {
-              return new Promise((resolve, reject) => {
-                fs.unlink(filePath, (error) => {
-                  if (error) {
-                    reject(error);
-                  } else {
-                    resolve('');
-                  }
-                });
-              });
-            });
-
-            await Promise.all(promises);
 
             return response.status(200).json(updatedBillboard);
           });
@@ -302,8 +338,8 @@ export const deleteBillboard = async (
           const imageUrls = [billboardExists.billboard_image];
 
           const filePaths = imageUrls.map(
-            // (filePath) => `src/assets/billboards/${getImageName(filePath)}`
-            (filePath) => `src/assets/${getImageName(filePath)}`
+            // (imageUrl) => `src/assets/billboards/${getImageName(imageUrl)}`
+            (imageUrl) => `src/assets/${getImageName(imageUrl)}`
           );
 
           const promises = filePaths.map((filePath) => {

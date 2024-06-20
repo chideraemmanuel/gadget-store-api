@@ -70,6 +70,8 @@ export const authorize = async (
   //     .json({ error: 'Forbidden - Admin access required' });
   // }
 
+  console.log('req cookies:', request.cookies);
+
   const admin_token = request.cookies.admin_token;
 
   if (!admin_token) {

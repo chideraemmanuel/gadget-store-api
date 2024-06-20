@@ -12,32 +12,36 @@ export const getUserCart = async (
 ) => {
   // @ts-ignore
   const user = request.user;
-  const { populate } = request.query;
+  // const { populate } = request.query;
 
   try {
-    const cart =
-      populate === 'true'
-        ? await Cart.findOne({ user: user._id })
-        : await Cart.findOne({ user: user._id });
+    // const cart =
+    //   populate === 'true'
+    //     ? await Cart.findOne({ user: user._id })
+    //     : await Cart.findOne({ user: user._id });
+
+    const cart = await Cart.findOne({ user: user._id });
 
     if (!cart) {
       try {
-        const newCart = await Cart.create({
+        const newUserCart = await Cart.create({
           user: user._id,
           cart_items: [],
         });
 
-        try {
-          const newPopulatedCart =
-            populate === 'true'
-              ? await Cart.findOne({ user: user._id })
-              : await Cart.findOne({ user: user._id });
+        return response.status(200).json(newUserCart);
 
-          return response.status(201).json(newPopulatedCart);
-        } catch (error: any) {
-          console.log('[NEW_CART_FETCH_ERROR]', error);
-          response.status(500).json({ error: 'Internal Server Error' });
-        }
+        // try {
+        //   const newPopulatedCart =
+        //     populate === 'true'
+        //       ? await Cart.findOne({ user: user._id })
+        //       : await Cart.findOne({ user: user._id });
+
+        //   return response.status(201).json(newPopulatedCart);
+        // } catch (error: any) {
+        //   console.log('[NEW_CART_FETCH_ERROR]', error);
+        //   response.status(500).json({ error: 'Internal Server Error' });
+        // }
       } catch (error: any) {
         console.log('[CART_RECORD_CREATION_ERROR]', error);
         response.status(500).json({ error: 'Internal Server Error' });

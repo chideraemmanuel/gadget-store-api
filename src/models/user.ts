@@ -26,6 +26,7 @@ const userSchema = new mongoose.Schema({
     // type: 'MANUAL_AUTH_SERVICE' || 'GOOGLE_AUTH_SERVICE',
     type: String,
     required: true,
+    enum: ['MANUAL_AUTH_SERVICE', 'GOOGLE_AUTH_SERVICE'],
   },
   role: {
     type: String,

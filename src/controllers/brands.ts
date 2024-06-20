@@ -14,15 +14,15 @@ export const getBrands = async (
   request: express.Request,
   response: express.Response
 ) => {
-  const { search_query } = request.query;
+  const { search_query, paginated, page, limit } = request.query;
 
-  //   if (page && isNaN(page as any)) {
-  //     return response.status(400).json({ error: 'Page should be a number.' });
-  //   }
+  if (page && isNaN(page as any)) {
+    return response.status(400).json({ error: 'Page should be a number.' });
+  }
 
-  //   if (limit && isNaN(limit as any)) {
-  //     return response.status(400).json({ error: 'Limit should be a number.' });
-  //   }
+  if (limit && isNaN(limit as any)) {
+    return response.status(400).json({ error: 'Limit should be a number.' });
+  }
 
   // build filters based on query params
   const filter: Filters = {};
@@ -31,16 +31,31 @@ export const getBrands = async (
     filter.name = { $regex: search_query as string, $options: 'i' };
   }
 
+  // paginate query only if paginated is part of the query params
+  if (paginated) {
+    if (paginated !== 'true' && paginated !== 'false') {
+      return response
+        .status(400)
+        .json({ error: 'Paginated must be a boolean value' });
+    }
+
+    try {
+      const paginationResponse = await paginateQuery({
+        model: Brand,
+        response,
+        filter,
+        page: parseInt(page as string),
+        limit: parseInt(limit as string),
+      });
+
+      return paginationResponse;
+    } catch (error: any) {
+      console.log('[DATABASE_SEARCH_ERROR]', error);
+      return response.status(500).json({ error: 'Internal Server Error' });
+    }
+  }
+
   try {
-    // const pagiationResponse = await paginateQuery({
-    //   model: Brand,
-    //   response,
-    //   page: parseInt(page as string),
-    //   limit: parseInt(limit as string),
-    // });
-
-    // return pagiationResponse;
-
     const brands = await Brand.find(filter);
 
     return response.status(200).json(brands);
@@ -164,6 +179,24 @@ export const updateBrand = async (
     const brandLogo = request.file;
 
     if (!mongoose.isValidObjectId(id)) {
+      // IF BRAND ID IS INVALID, DELETE ALREADY UPLOADED IMAGE, IF ANY
+      if (request.file) {
+        try {
+          await new Promise((resolve, reject) => {
+            fs.unlink(request.file?.filename!, (error) => {
+              if (error) {
+                reject(error);
+              } else {
+                resolve('');
+              }
+            });
+          });
+        } catch (error: any) {
+          console.log('PREVIOUS_IMAGE_DELETION_ERROR', error);
+          return response.status(500).json({ error: 'Internal Server Error' });
+        }
+      }
+
       return response.status(400).json({ error: 'Invalid Brand ID' });
     }
 
@@ -172,12 +205,32 @@ export const updateBrand = async (
       const brandExists = await Brand.findById(id);
 
       if (!brandExists) {
+        // IF BRAND DOES NOT EXIST, DELETE ALREADY UPLOADED IMAGE, IF ANY
+        if (request.file) {
+          try {
+            await new Promise((resolve, reject) => {
+              fs.unlink(request.file?.filename!, (error) => {
+                if (error) {
+                  reject(error);
+                } else {
+                  resolve('');
+                }
+              });
+            });
+          } catch (error: any) {
+            console.log('PREVIOUS_IMAGE_DELETION_ERROR', error);
+            return response
+              .status(500)
+              .json({ error: 'Internal Server Error' });
+          }
+        }
+
         return response
           .status(404)
           .json({ error: 'Brand with the supplied ID does not exist' });
       }
 
-      if (!name || !brandLogo) {
+      if (!name && !brandLogo) {
         return response
           .status(400)
           .json({ error: 'No field to be edited was supplied' });
@@ -201,31 +254,34 @@ export const updateBrand = async (
 
         try {
           const transactionResult = session.withTransaction(async () => {
+            if (updates.brand_logo) {
+              // IF A NEW IMAGE IS UPLOADED, DELETE PREVIOUSLY UPLOADED IMAGE, IF ANY
+              const imageUrls = [brandExists.brand_logo];
+
+              const filePaths = imageUrls.map(
+                // (imageUrl) => `src/assets/products/${getImageName(imageUrl)}`
+                (imageUrl) => `src/assets/${getImageName(imageUrl)}`
+              );
+
+              const promises = filePaths.map((filePath) => {
+                return new Promise((resolve, reject) => {
+                  fs.unlink(filePath, (error) => {
+                    if (error) {
+                      reject(error);
+                    } else {
+                      resolve('');
+                    }
+                  });
+                });
+              });
+
+              await Promise.all(promises);
+            }
+
             const updatedProduct = await Brand.findByIdAndUpdate(id, updates, {
               new: true,
               session,
             });
-
-            const imageUrls = [brandExists.brand_logo];
-
-            const filePaths = imageUrls.map(
-              // (filePath) => `src/assets/products/${getImageName(filePath)}`
-              (filePath) => `src/assets/${getImageName(filePath)}`
-            );
-
-            const promises = filePaths.map((filePath) => {
-              return new Promise((resolve, reject) => {
-                fs.unlink(filePath, (error) => {
-                  if (error) {
-                    reject(error);
-                  } else {
-                    resolve('');
-                  }
-                });
-              });
-            });
-
-            await Promise.all(promises);
 
             return response.status(200).json(updatedProduct);
           });
@@ -278,8 +334,8 @@ export const deleteBrand = async (
           const imageUrls = [brandExists.brand_logo];
 
           const filePaths = imageUrls.map(
-            // (filePath) => `src/assets/brands/${getImageName(filePath)}`
-            (filePath) => `src/assets/${getImageName(filePath)}`
+            // (imageUrl) => `src/assets/brands/${getImageName(imageUrl)}`
+            (imageUrl) => `src/assets/${getImageName(imageUrl)}`
           );
 
           const promises = filePaths.map((filePath) => {

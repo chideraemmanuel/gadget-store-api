@@ -1,5 +1,6 @@
 import express from 'express';
 import jwt from 'jsonwebtoken';
+import { v4 as uuid } from 'uuid';
 import User from '../models/user';
 import { compareHash, hashData } from '../lib/helpers/hash';
 import generateOtp from '../lib/helpers/generateOtp';
@@ -7,6 +8,7 @@ import Otp from '../models/otp';
 import { generateToken, verifyToken } from '../lib/helpers/token';
 import sendEmail from '../lib/helpers/sendEmail';
 import mongoose from 'mongoose';
+import PasswordReset from '../models/passwordReset';
 
 export const registerUser = async (
   request: express.Request,
@@ -18,6 +20,19 @@ export const registerUser = async (
     return response
       .status(400)
       .json({ error: 'Please supply all the required credentials' });
+  }
+
+  // const passwordRegex =
+  //   /^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*\W)(?!.* ).{8,16}$/;
+  const passwordRegex = /^(?=.*[0-9])(?=.*[a-z])(?=.*\W)(?!.* ).{8,16}$/;
+
+  const passwordValid = passwordRegex.test(password);
+
+  if (!passwordValid) {
+    return response.status(400).json({
+      error:
+        'Password must be 8-16 characters long, and contain at least one numeric digit, and a special character',
+    });
   }
 
   try {
@@ -185,7 +200,7 @@ export const verifyUser = async (
           return response.status(404).json({ error: 'No OTP record found' });
         }
 
-        // TODO: probably chech OTP expiry
+        // TODO: probably check OTP expiry
 
         const otpMatches = await compareHash(otp, otpRecord.otp);
 
@@ -215,7 +230,7 @@ export const verifyUser = async (
   }
 };
 
-export const resetOtp = async (
+export const resendOtp = async (
   request: express.Request,
   response: express.Response
 ) => {
@@ -272,6 +287,7 @@ export const resetOtp = async (
           subject: 'Email Verification',
           html: '',
         });
+
         console.log('Mail sent!', info.messageId);
 
         return response
@@ -288,6 +304,193 @@ export const resetOtp = async (
     }
   } catch (error: any) {
     console.log('[SESSION_START_ERROR]', error);
+    return response.status(500).json({ error: 'Internal Server Error' });
+  }
+};
+
+export const initiatePasswordReset = async (
+  request: express.Request,
+  response: express.Response
+) => {
+  const { email, redirect_url } = request.body;
+
+  if (!email || !redirect_url) {
+    return response
+      .status(400)
+      .json({ error: 'Please supply the required credentials' });
+  }
+
+  try {
+    const userExists = await User.findOne({ email });
+
+    if (!userExists) {
+      return response
+        .status(404)
+        .json({ error: 'No user with the supplied email' });
+    }
+
+    if (userExists && !userExists.verified) {
+      return response.status(401).json({ error: `Email hasn't been verified` });
+    }
+
+    if (userExists && userExists.auth_type === 'GOOGLE_AUTH_SERVICE') {
+      return response.status(400).json({
+        error: 'Account was verified with Google. Sign in with Google instead.',
+      });
+    }
+
+    const reset_string = uuid();
+
+    try {
+      const session = await mongoose.startSession();
+
+      try {
+        const transactionResult = await session.withTransaction(async () => {
+          const hashedResetString = await hashData(reset_string);
+
+          const passwordResetRecord = await PasswordReset.findOne({ email });
+
+          if (passwordResetRecord) {
+            await PasswordReset.deleteOne({ email }, { session });
+          }
+
+          const NewPasswordResetRecord = await PasswordReset.create(
+            [
+              {
+                email,
+                reset_string: hashedResetString,
+                createdAt: Date.now(),
+                expiresAt: Date.now() + 3600000,
+              },
+            ],
+            { session }
+          );
+
+          const info = await sendEmail({
+            receipent: email,
+            subject: 'Password Reset',
+            html: `<p>We heard you forgot your password. Please click <a href=${`${redirect_url}?email=${encodeURIComponent(
+              email
+            )}&reset_string=${reset_string}`}>here</a> to reset.</p>`,
+          });
+
+          // console.log('Mail sent!', info.messageId);
+
+          return response.status(201).json({
+            status: 'PENDING',
+            message: `Password reset link has been sent to ${email}`,
+          });
+        });
+
+        return transactionResult;
+      } catch (error: any) {
+        console.log('[TRANSACTION_ERROR]', error);
+        return response.status(500).json({ error: 'Internal Server Error' });
+      }
+    } catch (error: any) {
+      console.log('[SESSION_START_ERROR]', error);
+      return response.status(500).json({ error: 'Internal Server Error' });
+    }
+  } catch (error: any) {
+    console.log('[USER_FETCH_ERROR]', error);
+    return response.status(500).json({ error: 'Internal Server Error' });
+  }
+};
+
+export const resetPassword = async (
+  request: express.Request,
+  response: express.Response
+) => {
+  const { email, reset_string, new_password } = request.body;
+
+  if (!email || reset_string || new_password) {
+    return response
+      .status(400)
+      .json({ error: 'Please supply the required credentials' });
+  }
+
+  try {
+    const userExists = await User.findOne({ email });
+
+    if (!userExists) {
+      return response
+        .status(404)
+        .json({ error: 'No user with the supplied email' });
+    }
+
+    if (userExists && !userExists.verified) {
+      return response.status(401).json({ error: `Email hasn't been verified` });
+    }
+
+    if (userExists && userExists.auth_type === 'GOOGLE_AUTH_SERVICE') {
+      return response.status(400).json({
+        error: 'Account was verified with Google. Sign in with Google instead.',
+      });
+    }
+
+    try {
+      const passwordResetRecord = await PasswordReset.findOne({ email });
+
+      if (!passwordResetRecord) {
+        return response
+          .status(404)
+          .json({ error: 'No password reset request found' });
+      }
+
+      const {
+        email: storedEmail,
+        reset_string: storedResetString,
+        createdAt,
+        expiresAt,
+      } = passwordResetRecord;
+
+      // TODO: probably check rsest string expiry
+
+      const resetStringValid = await compareHash(
+        reset_string,
+        storedResetString
+      );
+
+      if (!resetStringValid) {
+        return response.status(400).json({ error: 'Invalid reset string' });
+      }
+
+      try {
+        const session = await mongoose.startSession();
+
+        try {
+          const transactionResult = await session.withTransaction(async () => {
+            const hashedNewPassword = await hashData(new_password);
+
+            await User.updateOne(
+              { email },
+              { password: hashedNewPassword },
+              { session }
+            );
+
+            await PasswordReset.deleteOne({ email }, { session });
+
+            return response.status(200).json({
+              status: 'SUCCESS',
+              message: 'Password reset successfully',
+            });
+          });
+
+          return transactionResult;
+        } catch (error: any) {
+          console.log('[TRANSACTION_ERROR]', error);
+          return response.status(500).json({ error: 'Internal Server Error' });
+        }
+      } catch (error: any) {
+        console.log('[SESSION_START_ERROR]', error);
+        return response.status(500).json({ error: 'Internal Server Error' });
+      }
+    } catch (error: any) {
+      console.log('[RESET_RECORD_FETCH_ERROR]', error);
+      return response.status(500).json({ error: 'Internal Server Error' });
+    }
+  } catch (error: any) {
+    console.log('[USER_FETCH_ERROR]', error);
     return response.status(500).json({ error: 'Internal Server Error' });
   }
 };

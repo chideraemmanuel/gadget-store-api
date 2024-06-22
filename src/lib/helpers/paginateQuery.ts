@@ -43,7 +43,7 @@ const paginateQuery = async ({
       .exec();
 
     // total_records
-    const total_records = await model.countDocuments();
+    const total_records = await model.countDocuments(filter);
     // total_pages
     const total_pages = Math.ceil(total_records / limitNumber);
     // current_page

@@ -80,15 +80,15 @@ export const getProducts = async (
     const isValidId = mongoose.isValidObjectId(brand);
 
     try {
-      // const storedCategory = await Category.findOne({
-      //   $or: [{ name: category }, { _id: category }],
+      // const storedBrand = await Brand.findOne({
+      //   $or: [{ name: brand }, { _id: brand }],
       // });
       const storedBrand = isValidId
-        ? await Category.findById(category)
-        : await Category.findOne({ name: category });
+        ? await Brand.findById(brand)
+        : await Brand.findOne({ name: brand });
 
       if (!storedBrand) {
-        return response.status(404).json({ error: 'Category does not exist' });
+        return response.status(404).json({ error: 'Brand does not exist' });
       }
 
       filter.brand = storedBrand?._id;

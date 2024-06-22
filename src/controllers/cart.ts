@@ -3,15 +3,18 @@ import Cart from '../models/cart';
 import mongoose from 'mongoose';
 import Product from '../models/product';
 
-// @desc  Get logged in user's cart items
-// @route  GET /cart
-// @access  Private
+/**
+ *
+ * @desc  Get logged in user's cart items
+ * @route  GET /cart
+ * @access  Private
+ */
 export const getUserCart = async (
   request: express.Request,
   response: express.Response
 ) => {
   // @ts-ignore
-  const user = request.user;
+  const user = request.user; // COMES FROM AUTHENTICATE() MIDDLEWARE
   // const { populate } = request.query;
 
   try {
@@ -173,6 +176,7 @@ export const incrementItem = async (
             user: user._id,
             cart_items: [],
           });
+
           return response.status(400).json({ error: 'Item is not in cart' });
         } catch (error: any) {
           console.log('[CART_CREATION_ERROR]', error);
@@ -187,19 +191,19 @@ export const incrementItem = async (
       );
 
       if (!itemExistsInCart) {
-        // return response.status(400).json({ error: 'Item is not in cart'})
-        try {
-          const updatedCart = await Cart.findOneAndUpdate(
-            { user: user._id },
-            { $push: { cart_items: { product, quantity: 1 } } },
-            { new: true }
-          );
+        return response.status(400).json({ error: 'Item is not in cart' });
+        // try {
+        //   const updatedCart = await Cart.findOneAndUpdate(
+        //     { user: user._id },
+        //     { $push: { cart_items: { product, quantity: 1 } } },
+        //     { new: true }
+        //   );
 
-          return response.status(200).json(updatedCart);
-        } catch (error: any) {
-          console.log('[CART_UPDATE_ERROR]', error);
-          return response.status(500).json({ error: 'Internal Server Error' });
-        }
+        //   return response.status(200).json(updatedCart);
+        // } catch (error: any) {
+        //   console.log('[CART_UPDATE_ERROR]', error);
+        //   return response.status(500).json({ error: 'Internal Server Error' });
+        // }
       }
 
       // increment item here!
@@ -261,6 +265,7 @@ export const decrementItem = async (
             user: user._id,
             cart_items: [],
           });
+
           return response.status(400).json({ error: 'Item is not in cart' });
         } catch (error: any) {
           console.log('[CART_CREATION_ERROR]', error);
@@ -354,6 +359,7 @@ export const removeFromCart = async (
             user: user._id,
             cart_items: [],
           });
+
           return response.status(400).json({ error: 'Item is not in cart' });
         } catch (error: any) {
           console.log('[CART_CREATION_ERROR]', error);
@@ -409,6 +415,7 @@ export const clearCart = async (
           user: user._id,
           cart_items: [],
         });
+
         return response.status(400).json({ error: 'No items in cart' });
       } catch (error: any) {
         console.log('[CART_CREATION_ERROR]', error);

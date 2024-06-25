@@ -8,32 +8,28 @@ const ordersSchema = new mongoose.Schema({
     required: true,
     autopopulate: true,
   },
-  order_items: [
+  orders: [
     {
-      product: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Product',
-        required: true,
-        autopopulate: true,
-      },
-      quantity: {
-        type: Number,
-        required: true,
-        min: 0,
-      },
-      status: {
+      order_id: {
         type: String,
-        default: 'pending',
-        enum: ['pending', 'shipped', 'delivered'],
-      },
-      order_date: {
-        type: Date,
         required: true,
+        unique: true,
       },
-      total_price: {
-        type: Number,
-        required: true,
-      },
+      order_items: [
+        {
+          product: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'Product',
+            required: true,
+            autopopulate: true,
+          },
+          quantity: {
+            type: Number,
+            required: true,
+            min: 0,
+          },
+        },
+      ],
       shipping_address: {
         receipent_name: {
           type: String,
@@ -58,6 +54,19 @@ const ordersSchema = new mongoose.Schema({
           type: String,
           required: true,
         },
+      },
+      status: {
+        type: String,
+        default: 'pending',
+        enum: ['pending', 'shipped', 'delivered'],
+      },
+      order_date: {
+        type: Date,
+        required: true,
+      },
+      total_price: {
+        type: Number,
+        required: true,
       },
     },
   ],

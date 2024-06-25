@@ -4,6 +4,7 @@ import User from '../models/user';
 import Order from '../models/order';
 import paginateQuery from '../lib/helpers/paginateQuery';
 import mongoose from 'mongoose';
+import Product from '../models/product';
 
 export const getUser = async (
   request: express.Request,
@@ -15,13 +16,7 @@ export const getUser = async (
 
   const user = request.user; // COMES FROM AUTHENTICATE() MIDDLEWARE
 
-  return response.status(200).json({
-    id: user._id,
-    first_name: user.first_name,
-    last_name: user.last_name,
-    email: user.email,
-    verified: user.verified,
-  });
+  return response.status(200).json(user);
 };
 
 interface Updates {
@@ -152,3 +147,218 @@ export const getSingleUserOrder = async (
     return response.status(500).json({ error: 'Internal Server Error' });
   }
 };
+
+interface OrderItems {
+  product: string;
+  quantity: number;
+  shipping_address: string;
+  address: string;
+  postal_code: string;
+  city: string;
+  state: string;
+  country: string;
+}
+
+export const placeOrder = async (
+  request: express.Request,
+  response: express.Response
+) => {
+  // @ts-ignore
+  const user = request.user; // COMES FROM AUTHENTICATE MIDDLEWARE
+  // order_items
+  // product;
+  // quantity;
+  // shipping_address;
+  // address;
+  // postal_code;
+  // city;
+  // state;
+  // country;
+  // status;
+  // order_date;
+  // total_price;
+
+  const { order_items } = request.body;
+
+  if (!Array.isArray(order_items)) {
+    return response
+      .status(400)
+      .json({ error: 'Order item(s) should be passed as an array' });
+  }
+
+  const order_items_array: OrderItems[] = order_items;
+
+  // loop through all order items and check if any invalid field was passed in
+  let appendedOrderItems = {} as OrderItems &
+    { status: string; order_date: number; total_price: number }[];
+
+  order_items_array.map(async (order_item) => {
+    const {
+      product,
+      quantity,
+      shipping_address,
+      address,
+      postal_code,
+      city,
+      state,
+      country,
+    } = order_item;
+
+    if (
+      product ||
+      quantity ||
+      shipping_address ||
+      address ||
+      postal_code ||
+      city ||
+      state ||
+      country
+    ) {
+      return response
+        .status(400)
+        .json({ error: 'Please provide all the required credentials' });
+    }
+
+    if (isNaN(quantity)) {
+      return response
+        .status(400)
+        .json({ error: 'Quantity should be a number' });
+    }
+
+    if (!mongoose.isValidObjectId(product)) {
+      return response.status(400).json({ error: 'Invalid Product ID' });
+    }
+
+    const productExists = await Product.findById(product);
+
+    if (!productExists) {
+      return response
+        .status(404)
+        .json({ error: 'Product with the supplied ID does not exist' });
+    }
+
+    // append status, order_date, and total_price to order_item
+    const newOrderItem = {
+      ...order_item,
+      status: 'pending',
+      order_date: Date.now(),
+      total_price: 1,
+    };
+
+    appendedOrderItems.push(newOrderItem);
+  });
+
+  console.log('appendedOrderItems:', appendedOrderItems);
+
+  // loop ended and no error was returned
+
+  try {
+    const userOrders = await Order.findOne({ user: user._id });
+
+    if (!userOrders) {
+      try {
+        const newOrder = await Order.create({
+          user: user._id,
+          order_items: appendedOrderItems,
+        });
+
+        return response.status(201).json(newOrder);
+      } catch (error: any) {
+        console.log('[ORDER_RECORD_CREATION_ERROR]', error);
+        return response.status(500).json({ error: 'Internal Server Error' });
+      }
+    }
+
+    const updatedOrder = await Order.findOneAndUpdate(
+      { user: user._id },
+      { $push: { order_items: { $each: appendedOrderItems } } },
+      { new: true }
+    );
+
+    return response.status(200).json(updatedOrder);
+  } catch (error: any) {
+    console.log('[ORDERS_FETCH_ERROR]');
+    return response.status(500).json({ error: 'Internal Server Error' });
+  }
+
+  // const {
+  //   product,
+  //   quantity,
+  //   shipping_address,
+  //   address,
+  //   postal_code,
+  //   city,
+  //   state,
+  //   country,
+  // } = order_items;
+
+  // if (
+  //   product ||
+  //   quantity ||
+  //   shipping_address ||
+  //   address ||
+  //   postal_code ||
+  //   city ||
+  //   state ||
+  //   country
+  // ) {
+  //   return response
+  //     .status(400)
+  //     .json({ error: 'Please provide all the required credentials' });
+  // }
+
+  // if (isNaN(quantity)) {
+  //   return response.status(400).json({ error: 'Quantity should be a number' });
+  // }
+
+  // if (!mongoose.isValidObjectId(product)) {
+  //   return response.status(400).json({ error: 'Invalid Product ID' });
+  // }
+
+  // try {
+  //   const productExists = await Product.findById(product);
+
+  //   if (!productExists) {
+  //     return response
+  //       .status(404)
+  //       .json({ error: 'Product with the supplied ID does not exist' });
+  //   }
+
+  //   try {
+  //     const userOrders = await Order.findOne({ user: user._id });
+
+  //     if (!userOrders) {
+  //       try {
+  //         const newOrder = await Order.create({
+  //           user: user._id,
+  //           order_items: {},
+  //         });
+
+  //         return response.status(201).json(newOrder);
+  //       } catch (error: any) {
+  //         console.log('[ORDER_RECORD_CREATION_ERROR]', error);
+  //         return response.status(500).json({ error: 'Internal Server Error' });
+  //       }
+  //     }
+
+  //     const updatedOrder = await Order.findOneAndUpdate(
+  //       { user: user._id },
+  //       { $push: { order_items: {} } },
+  //       { new: true }
+  //     );
+
+  //     return response.status(200).json(updatedOrder);
+  //   } catch (error: any) {
+  //     console.log('[ORDERS_FETCH_ERROR]');
+  //     return response.status(500).json({ error: 'Internal Server Error' });
+  //   }
+  // } catch (error: any) {
+  //   console.log('[PRODUCT_FETCH_ERROR]', error);
+  //   return response.status(500).json({ error: 'Internal Server Error' });
+  // }
+};
+
+export const cancelOrder = async (
+  request: express.Request,
+  response: express.Response
+) => {};

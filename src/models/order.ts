@@ -21,6 +21,19 @@ const ordersSchema = new mongoose.Schema({
         required: true,
         min: 0,
       },
+      status: {
+        type: String,
+        default: 'pending',
+        enum: ['pending', 'shipped', 'delivered'],
+      },
+      order_date: {
+        type: Date,
+        required: true,
+      },
+      total_price: {
+        type: Number,
+        required: true,
+      },
       shipping_address: {
         receipent_name: {
           type: String,
@@ -48,19 +61,6 @@ const ordersSchema = new mongoose.Schema({
       },
     },
   ],
-  status: {
-    type: String,
-    default: 'pending',
-    enum: ['pending', 'shipped', 'delivered'],
-  },
-  order_date: {
-    type: Date,
-    required: true,
-  },
-  total_price: {
-    type: Number,
-    required: true,
-  },
 });
 
 ordersSchema.plugin(mongooseAutoPopulate);

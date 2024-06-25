@@ -9,6 +9,8 @@ import { generateToken, verifyToken } from '../lib/helpers/token';
 import sendEmail from '../lib/helpers/sendEmail';
 import mongoose from 'mongoose';
 import PasswordReset from '../models/passwordReset';
+import userVerificationTemplate from '../lib/email-templates/userVerificationTemplate';
+import passwordResetTemplate from '../lib/email-templates/passwordResetTemplate';
 
 export const registerUser = async (
   request: express.Request,
@@ -78,13 +80,16 @@ export const registerUser = async (
           { session }
         );
 
-        // const info = await sendEmail({
-        //   receipent: email,
-        //   subject: 'Email Verification',
-        //   html: `<p>Your OTP is ${otp}</p>`,
-        // });
+        const info = await sendEmail({
+          receipent: email,
+          subject: 'Email Verification',
+          html: userVerificationTemplate({
+            first_name,
+            otp,
+          }),
+        });
 
-        // console.log('Mail sent!', info.messageId);
+        console.log('Mail sent!', info.messageId);
 
         return response
           .status(201)
@@ -285,7 +290,10 @@ export const resendOtp = async (
         const info = await sendEmail({
           receipent: email,
           subject: 'Email Verification',
-          html: '',
+          html: userVerificationTemplate({
+            first_name: userExists.first_name,
+            otp,
+          }),
         });
 
         console.log('Mail sent!', info.messageId);
@@ -369,9 +377,12 @@ export const initiatePasswordReset = async (
           const info = await sendEmail({
             receipent: email,
             subject: 'Password Reset',
-            html: `<p>We heard you forgot your password. Please click <a href=${`${redirect_url}?email=${encodeURIComponent(
-              email
-            )}&reset_string=${reset_string}`}>here</a> to reset.</p>`,
+            html: passwordResetTemplate({
+              first_name: userExists.first_name,
+              email,
+              reset_string,
+              redirect_url,
+            }),
           });
 
           // console.log('Mail sent!', info.messageId);
@@ -386,6 +397,8 @@ export const initiatePasswordReset = async (
       } catch (error: any) {
         console.log('[TRANSACTION_ERROR]', error);
         return response.status(500).json({ error: 'Internal Server Error' });
+      } finally {
+        await session.endSession();
       }
     } catch (error: any) {
       console.log('[SESSION_START_ERROR]', error);
@@ -480,6 +493,8 @@ export const resetPassword = async (
         } catch (error: any) {
           console.log('[TRANSACTION_ERROR]', error);
           return response.status(500).json({ error: 'Internal Server Error' });
+        } finally {
+          await session.endSession();
         }
       } catch (error: any) {
         console.log('[SESSION_START_ERROR]', error);

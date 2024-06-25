@@ -65,8 +65,12 @@ export const updateUser = async (
   }
 };
 
+// interface GetOrdersQueryParams {
+//   status?: 'pending' | 'shipped' | 'delivered';
+// }
+
 interface GetOrdersQueryParams {
-  status?: 'pending' | 'shipped' | 'delivered';
+  'orders.status'?: 'pending' | 'shipped' | 'delivered';
 }
 
 export const getUserOrders = async (
@@ -75,51 +79,89 @@ export const getUserOrders = async (
 ) => {
   // @ts-ignore
   const user = request.user; // COMES FROM AUTHENTICATE MIDDLEWARE
-  const { status, page, limit } = request.query;
+  // const { status, page, limit } = request.query;
+  const { status } = request.query;
 
-  if (page && isNaN(page as any)) {
-    return response.status(400).json({ error: 'Page should be a number.' });
-  }
+  // if (page && isNaN(page as any)) {
+  //   return response.status(400).json({ error: 'Page should be a number.' });
+  // }
 
-  if (limit && isNaN(limit as any)) {
-    return response.status(400).json({ error: 'Limit should be a number.' });
-  }
+  // if (limit && isNaN(limit as any)) {
+  //   return response.status(400).json({ error: 'Limit should be a number.' });
+  // }
 
   // build filters
-  const filters: GetOrdersQueryParams = {};
+  // const filters: GetOrdersQueryParams = {};
 
-  if (status) {
-    if (
-      status !== 'pending' &&
-      status !== 'shipped' &&
-      status !== 'delivered'
-    ) {
-      return response.status(400).json({ error: 'Invalid "status" filter' });
-    }
+  // if (status) {
+  //   if (
+  //     status !== 'pending' &&
+  //     status !== 'shipped' &&
+  //     status !== 'delivered'
+  //   ) {
+  //     return response.status(400).json({ error: 'Invalid "status" filter' });
+  //   }
 
-    filters.status = status;
-  }
+  //   filters['orders.status'] = status;
+  // }
 
   // filter by date range?
 
   try {
-    const orders = await Order.find({ user: user._id });
+    const orderRecord = await Order.findOne({ user: user._id });
 
-    if (!orders || orders.length === 0) {
-      return response.status(404).json({ error: 'No order found' });
+    if (!orderRecord) {
+      const newOrderRecord = await Order.create({
+        user: user._id,
+        orders: [],
+      });
+
+      return response.status(201).json(newOrderRecord);
     }
 
-    const paginationResponse = await paginateQuery({
-      model: Order,
-      response,
-      filter: filters,
-      //  populate: populate === 'true' ? true : undefined,
-      page: parseInt(page as string),
-      limit: parseInt(limit as string),
-    });
+    if (status) {
+      if (
+        status !== 'pending' &&
+        status !== 'shipped' &&
+        status !== 'delivered'
+      ) {
+        return response.status(400).json({ error: 'Invalid "status" filter' });
+      }
 
-    // return response.status(200).json(orders);
-    return paginationResponse;
+      const requestedOrders = orderRecord.orders.filter(
+        (item) => item.status === status
+      );
+
+      if (!requestedOrders || requestedOrders.length === 0) {
+        return response.status(200).json({
+          user: user._id,
+          orders: [],
+        });
+      }
+
+      return response.status(200).json({
+        user: user._id,
+        orders: requestedOrders,
+      });
+    }
+
+    return response.status(201).json(orderRecord);
+
+    // @ts-ignore
+    // if (orderRecord?.orders?.length === 0) {
+    //   return response.status(201).json(orderRecord);
+    // }
+
+    // const paginationResponse = await paginateQuery({
+    //   model: Order,
+    //   response,
+    //   filter: filters,
+    //   //  populate: populate === 'true' ? true : undefined,
+    //   page: parseInt(page as string),
+    //   limit: parseInt(limit as string),
+    // });
+
+    // return paginationResponse;
   } catch (error: any) {
     console.log('[ORDERS_FETCH_ERROR]');
     return response.status(500).json({ error: 'Internal Server Error' });
@@ -132,18 +174,31 @@ export const getSingleUserOrder = async (
 ) => {
   // @ts-ignore
   const user = request.user; // COMES FROM AUTHENTICATE MIDDLEWARE
-  const { id } = request.params;
+  const { orderId } = request.params;
 
-  if (!mongoose.isValidObjectId(id)) {
-    return response.status(400).json({ error: 'Invalid Order Id' });
-  }
+  // if (!mongoose.isValidObjectId(orderId)) {
+  //   return response.status(400).json({ error: 'Invalid Order Id' });
+  // }
 
   try {
-    const order = Order.findOne({ user: user._id, _id: id });
+    const order = await Order.findOne({ user: user._id });
 
-    if (!order) {
+    if (!order || order.orders.length === 0) {
       return response.status(404).json({ error: 'Order not found' });
     }
+
+    const requestedOrder = order.orders.find(
+      (item) => item.order_id === orderId
+    );
+
+    if (!requestedOrder) {
+      return response.status(404).json({ error: 'Order not found' });
+    }
+
+    return response.status(200).json({
+      user: user._id,
+      order: requestedOrder,
+    });
   } catch (error: any) {
     console.log('[ORDER_FETCH_ERROR]', error);
     return response.status(500).json({ error: 'Internal Server Error' });

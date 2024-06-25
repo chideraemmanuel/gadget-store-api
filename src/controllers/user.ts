@@ -485,4 +485,57 @@ export const placeOrder = async (
 export const cancelOrder = async (
   request: express.Request,
   response: express.Response
-) => {};
+) => {
+  // @ts-ignore
+  const user = request.user; // COMES FROM AUTHENTICATE MIDDLEWARE
+  const { orderId } = request.params;
+
+  try {
+    const orderRecord = await Order.findOne({
+      user: user._id,
+      'orders.order_id': orderId,
+    });
+
+    if (!orderRecord || orderRecord.orders.length === 0) {
+      return response.status(404).json({ error: 'Order not found' });
+    }
+
+    const orderToCancel = orderRecord.orders.find(
+      (item) => item.order_id === orderId
+    );
+
+    if (!orderToCancel) {
+      return response.status(404).json({ error: 'Order not found' });
+    }
+
+    if (
+      orderToCancel.status === 'shipped' ||
+      orderToCancel.status === 'delivered'
+    ) {
+      return response
+        .status(400)
+        .json({
+          error:
+            'Orders that have been shipped or delivered cannot be cancelled',
+        });
+    }
+
+    try {
+      const updatedOrderRecord = await Order.findOneAndUpdate(
+        { user: user._id },
+        { $pull: { 'orders.order_id': orderId } },
+        { new: true }
+      );
+
+      return response
+        .status(200)
+        .json({ message: 'Order Cancelled Successfully' });
+    } catch (error: any) {
+      console.log('[ORDER_UPDATE_ERROR]', error);
+      return response.status(500).json({ error: 'Internal Server Error' });
+    }
+  } catch (error: any) {
+    console.log('[ORDER_FETCH_ERROR]', error);
+    return response.status(500).json({ error: 'Internal Server Error' });
+  }
+};

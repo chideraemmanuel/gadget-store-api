@@ -29,6 +29,7 @@ export const getUsers = async (
         .status(400)
         .json({ error: 'Featured must be a boolean value' });
     }
+
     filters.verified = verified;
   }
 

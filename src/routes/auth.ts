@@ -8,6 +8,7 @@ import {
   logoutAdmin,
   logoutUser,
   registerUser,
+  authenticateUserWithGoogle,
   resendOtp,
   resetPassword,
   verifyUser,
@@ -16,6 +17,7 @@ import {
 const router = express.Router();
 
 router.post('/register', registerUser);
+router.get('/google', authenticateUserWithGoogle);
 router.post('/login', loginUser);
 router.get('/logout', logoutUser);
 router.post('/admin/login', loginAdmin);

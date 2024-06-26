@@ -11,6 +11,7 @@ import mongoose from 'mongoose';
 import PasswordReset from '../models/passwordReset';
 import userVerificationTemplate from '../lib/email-templates/userVerificationTemplate';
 import passwordResetTemplate from '../lib/email-templates/passwordResetTemplate';
+import axios from 'axios';
 
 export const registerUser = async (
   request: express.Request,
@@ -91,19 +92,28 @@ export const registerUser = async (
 
         console.log('Mail sent!', info.messageId);
 
+        //   return response
+        //     .status(201)
+        //     .cookie('token', token)
+        //     .json({
+        //       user: {
+        //         id: createdUser[0]._id,
+        //         first_name: createdUser[0].first_name,
+        //         last_name: createdUser[0].last_name,
+        //         email: createdUser[0].email,
+        //         verified: createdUser[0].verified,
+        //         auth_type: createdUser[0].auth_type,
+        //         role: createdUser[0].role,
+        //       },
+        //       message: `OTP has been sent to ${email}`,
+        //     });
+        // });
+
         return response
           .status(201)
           .cookie('token', token)
           .json({
-            user: {
-              id: createdUser[0]._id,
-              first_name: createdUser[0].first_name,
-              last_name: createdUser[0].last_name,
-              email: createdUser[0].email,
-              verified: createdUser[0].verified,
-              auth_type: createdUser[0].auth_type,
-              role: createdUser[0].role,
-            },
+            user: createdUser,
             message: `OTP has been sent to ${email}`,
           });
       });
@@ -118,6 +128,91 @@ export const registerUser = async (
     }
   } catch (error: any) {
     console.log('[SESSION_START_ERROR]', error);
+    return response.status(500).json({ error: 'Internal Server Error' });
+  }
+};
+
+interface GoogleResponse {
+  id_token: string;
+  access_token: string;
+}
+
+export const authenticateUserWithGoogle = async (
+  request: express.Request,
+  response: express.Response
+) => {
+  const { code } = request.query;
+
+  if (!code) {
+    return response.status(400).json({ error: 'Authetication failed' });
+  }
+
+  const base = 'https://oauth2.googleapis.com/token';
+
+  const params = {
+    code,
+    client_id: process.env.GOOGLE_CLIENT_ID!,
+    client_secret: process.env.GOOGLE_CLIENT_SECRET!,
+    redirect_uri: 'http://localhost:5000/api/v1/auth/register/google',
+    grant_type: 'authorization_code',
+  };
+
+  try {
+    const googleResponse = await axios.post<GoogleResponse>(base, params);
+
+    console.log('google response', googleResponse.data);
+
+    const userData = jwt.decode(googleResponse?.data?.id_token);
+
+    console.log('userData', userData);
+
+    // @ts-ignore
+    const { email, given_name, family_name, picture } = userData;
+
+    try {
+      const userExists = await User.findOne({ email });
+
+      if (userExists && userExists.auth_type !== 'GOOGLE_AUTH_SERVICE') {
+        return response.status(400).json({ error: 'Email is already in use' });
+      }
+
+      if (userExists && userExists?.auth_type === 'GOOGLE_AUTH_SERVICE') {
+        const token = generateToken(userExists._id);
+
+        // return response.status(200).cookie('token', token).json({
+        //   id: userExists._id,
+        //   first_name: userExists.first_name,
+        //   last_name: userExists.last_name,
+        //   email: userExists.email,
+        //   verified: userExists.verified,
+        //   user: userExists.role,
+        // });
+
+        return response.status(200).cookie('token', token).json(userExists);
+      }
+
+      try {
+        const createdUser = await User.create({
+          first_name: given_name,
+          last_name: family_name,
+          email,
+          verified: true,
+          auth_type: 'GOOGLE_AUTH_SERVICE',
+        });
+
+        const token = generateToken(createdUser._id);
+
+        return response.status(201).cookie('token', token).json(createdUser);
+      } catch (error: any) {
+        console.log('[USER_CREATION_ERROR]', error);
+        return response.status(500).json({ error: 'Internal Server Error' });
+      }
+    } catch (error: any) {
+      console.log('[USER_FETCH_ERROR]', error);
+      return response.status(500).json({ error: 'Internal Server Error' });
+    }
+  } catch (error: any) {
+    console.log('[GOOGLE_OAUTH_ERROR]', error?.response?.data);
     return response.status(500).json({ error: 'Internal Server Error' });
   }
 };
@@ -158,14 +253,16 @@ export const loginUser = async (
 
     const token = generateToken(userExists._id);
 
-    return response.status(200).cookie('token', token).json({
-      id: userExists._id,
-      first_name: userExists.first_name,
-      last_name: userExists.last_name,
-      email: userExists.email,
-      verified: userExists.verified,
-      user: userExists.role,
-    });
+    // return response.status(200).cookie('token', token).json({
+    //   id: userExists._id,
+    //   first_name: userExists.first_name,
+    //   last_name: userExists.last_name,
+    //   email: userExists.email,
+    //   verified: userExists.verified,
+    //   user: userExists.role,
+    // });
+
+    return response.status(200).cookie('token', token).json(userExists);
   } catch (error: any) {
     console.log('[USER_FETCH_ERROR]', error);
     return response.status(500).json({ error: 'Internal Server Error' });

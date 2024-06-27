@@ -153,11 +153,12 @@ export const authenticateUserWithGoogle = async (
     code,
     client_id: process.env.GOOGLE_CLIENT_ID!,
     client_secret: process.env.GOOGLE_CLIENT_SECRET!,
-    redirect_uri: 'http://localhost:5000/api/v1/auth/register/google',
+    redirect_uri: 'http://localhost:5000/api/v1/auth/google',
     grant_type: 'authorization_code',
   };
 
   try {
+    // params can be passed as either body data or query strings
     const googleResponse = await axios.post<GoogleResponse>(base, params);
 
     console.log('google response', googleResponse.data);

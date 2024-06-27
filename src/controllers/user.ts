@@ -346,7 +346,7 @@ export const placeOrder = async (
   // total_price;
   const { order_items, shipping_address } = request.body;
 
-  if (!order_items) {
+  if (!order_items || order_items.length === 0) {
     return response.status(400).json({
       error:
         'Please provide an array of order item(s) with the required fields.',
@@ -391,94 +391,133 @@ export const placeOrder = async (
   // this is to be used to calculate the total price of the order
   let populatedOrderItems = [] as PopulatedOrderItemTypes[];
 
-  order_items.forEach(async (order_item) => {
-    const { product, quantity } = order_item;
+  // order_items.forEach(async (order_item) => {
+  //   const { product, quantity } = order_item;
 
-    if (!product || !quantity) {
-      return response
-        .status(400)
-        .json({ error: 'Please provide the required product details' });
-    }
+  //   if (!product || !quantity) {
+  //     return response
+  //       .status(400)
+  //       .json({ error: 'Please provide the required product details' });
+  //   }
 
-    if (isNaN(quantity)) {
-      return response
-        .status(400)
-        .json({ error: 'Quantity should be a number' });
-    }
+  //   if (isNaN(quantity)) {
+  //     return response
+  //       .status(400)
+  //       .json({ error: 'Quantity should be a number' });
+  //   }
 
-    if (!mongoose.isValidObjectId(product)) {
-      return response.status(400).json({ error: 'Invalid Product ID' });
-    }
+  //   if (!mongoose.isValidObjectId(product)) {
+  //     return response.status(400).json({ error: 'Invalid Product ID' });
+  //   }
 
-    const productExists = await Product.findById(product);
+  //   const productExists = await Product.findById(product);
 
-    if (!productExists) {
-      return response
-        .status(404)
-        .json({ error: 'Product with the supplied ID does not exist' });
-    }
+  //   if (!productExists) {
+  //     return response
+  //       .status(404)
+  //       .json({ error: 'Product with the supplied ID does not exist' });
+  //   }
 
-    validOrderItems.push(order_item);
-    populatedOrderItems.push({ product: productExists, quantity: quantity });
-  });
-
-  console.log('validOrderItems:', validOrderItems);
-  console.log('populatedOrderItems:', populatedOrderItems);
-  console.log('subTotal:', getSubTotal(populatedOrderItems));
+  //   validOrderItems.push(order_item);
+  //   populatedOrderItems.push({ product: productExists, quantity: quantity });
+  // });
 
   try {
-    const userOrders = await Order.findOne({ user: user._id });
+    // USES FOR OF LOOP IN PLACE OF FOREACH, AS FOREACH DOESN'T HANDLE ASYNCHRONOUS OPERATIONS WELL
+    for (const order_item of order_items) {
+      const { product, quantity } = order_item;
 
-    if (!userOrders) {
-      try {
-        const newUserOrder = await Order.create({
-          user: user._id,
-          orders: [
-            {
-              order_id: uuid(),
-              // order_items: order_items,
-              order_items: validOrderItems,
-              shipping_address: shipping_address,
-              status: 'pending',
-              order_date: Date.now(),
-              total_price: getSubTotal(populatedOrderItems),
-            },
-          ],
-        });
-
-        return response.status(201).json(newUserOrder);
-      } catch (error: any) {
-        console.log('[ORDER_RECORD_CREATION_ERROR]', error);
-        return response.status(500).json({ error: 'Internal Server Error' });
+      if (!product || !quantity) {
+        return response
+          .status(400)
+          .json({ error: 'Please provide the required product details' });
       }
+
+      if (isNaN(quantity)) {
+        return response
+          .status(400)
+          .json({ error: 'Quantity should be a number' });
+      }
+
+      if (!mongoose.isValidObjectId(product)) {
+        return response.status(400).json({ error: 'Invalid Product ID' });
+      }
+
+      const productExists = await Product.findById(product);
+
+      if (!productExists) {
+        return response
+          .status(404)
+          .json({ error: 'Product with the supplied ID does not exist' });
+      }
+
+      validOrderItems.push(order_item);
+      populatedOrderItems.push({ product: productExists, quantity });
     }
+
+    // Process the valid order items (e.g., save to database)
+    // ...
+    console.log('validOrderItems:', validOrderItems);
+    console.log('populatedOrderItems:', populatedOrderItems);
+    console.log('subTotal:', getSubTotal(populatedOrderItems));
 
     try {
-      const updatedOrder = await Order.findOneAndUpdate(
-        { user: user._id },
-        {
-          $push: {
-            orders: {
-              order_id: uuid(),
-              order_items: validOrderItems,
-              shipping_address: shipping_address,
-              status: 'pending',
-              order_date: Date.now(),
-              total_price: getSubTotal(populatedOrderItems),
+      const userOrders = await Order.findOne({ user: user._id });
+
+      if (!userOrders) {
+        try {
+          const newUserOrder = await Order.create({
+            user: user._id,
+            orders: [
+              {
+                order_id: uuid(),
+                // order_items: order_items,
+                order_items: validOrderItems,
+                shipping_address: shipping_address,
+                status: 'pending',
+                order_date: Date.now(),
+                total_price: getSubTotal(populatedOrderItems),
+              },
+            ],
+          });
+
+          return response.status(201).json(newUserOrder);
+        } catch (error: any) {
+          console.log('[ORDER_RECORD_CREATION_ERROR]', error);
+          return response.status(500).json({ error: 'Internal Server Error' });
+        }
+      }
+
+      try {
+        const updatedOrder = await Order.findOneAndUpdate(
+          { user: user._id },
+          {
+            $push: {
+              orders: {
+                order_id: uuid(),
+                order_items: validOrderItems,
+                shipping_address: shipping_address,
+                status: 'pending',
+                order_date: Date.now(),
+                total_price: getSubTotal(populatedOrderItems),
+              },
             },
           },
-        },
-        { new: true }
-      );
+          { new: true }
+        );
 
-      return response.status(200).json(updatedOrder);
+        return response.status(200).json(updatedOrder);
+      } catch (error: any) {
+        console.log('[ORDER_RECORD_UPDATE_ERROR]', error);
+        return response.status(500).json('Internal Server Error');
+      }
     } catch (error: any) {
-      console.log('[ORDER_RECORD_UPDATE_ERROR]', error);
-      return response.status(500).json('Internal Server Error');
+      console.log('[USER_ORDER_FETCH_ERROR]', error);
+      return response.status(500).json({ error: 'Internal Server Error' });
     }
-  } catch (error: any) {
-    console.log('[USER_ORDER_FETCH_ERROR]', error);
-    return response.status(500).json({ error: 'Internal Server Error' });
+  } catch (error) {
+    console.error('Error processing order:', error);
+    return response.status(500).json({ error: 'Internal server error' });
   }
 };
 
@@ -512,18 +551,17 @@ export const cancelOrder = async (
       orderToCancel.status === 'shipped' ||
       orderToCancel.status === 'delivered'
     ) {
-      return response
-        .status(400)
-        .json({
-          error:
-            'Orders that have been shipped or delivered cannot be cancelled',
-        });
+      return response.status(400).json({
+        error: 'Orders that have been shipped or delivered cannot be cancelled',
+      });
     }
 
     try {
       const updatedOrderRecord = await Order.findOneAndUpdate(
         { user: user._id },
-        { $pull: { 'orders.order_id': orderId } },
+        // can fetch with dot notation, but can't update with dot notation
+        // { $pull: { 'orders.order_id': orderId } },
+        { $pull: { orders: { order_id: orderId } } },
         { new: true }
       );
 

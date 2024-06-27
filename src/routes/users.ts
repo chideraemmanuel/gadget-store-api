@@ -1,10 +1,12 @@
 import express from 'express';
+import { getSingleUser, getUsers, getUsersCount } from '../controllers/users';
 // import { getUser } from '../controllers/users';
 
 const router = express.Router();
 
 // get all users (admin)
-// router.get('/')
-// router.get('/:id', getUser);
+router.get('/', getUsers);
+router.get('/:id', getSingleUser);
+router.get('/count', getUsersCount);
 
 export default router;

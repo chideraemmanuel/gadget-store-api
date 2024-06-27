@@ -141,9 +141,13 @@ export const authenticateUserWithGoogle = async (
   request: express.Request,
   response: express.Response
 ) => {
-  const { code } = request.query;
+  const { code, success_callback, error_callback } = request.query;
+
+  console.log('success_callback', success_callback);
+  console.log('error_callback', error_callback);
 
   if (!code) {
+    // use error_callback to redirect here
     return response.status(400).json({ error: 'Authetication failed' });
   }
 
@@ -189,6 +193,7 @@ export const authenticateUserWithGoogle = async (
         //   user: userExists.role,
         // });
 
+        // use success_callback to redirect here
         return response.status(200).cookie('token', token).json(userExists);
       }
 
@@ -203,16 +208,20 @@ export const authenticateUserWithGoogle = async (
 
         const token = generateToken(createdUser._id);
 
+        // use success_callback to redirect here
         return response.status(201).cookie('token', token).json(createdUser);
       } catch (error: any) {
+        // use error_callback to redirect here
         console.log('[USER_CREATION_ERROR]', error);
         return response.status(500).json({ error: 'Internal Server Error' });
       }
     } catch (error: any) {
+      // use error_callback to redirect here
       console.log('[USER_FETCH_ERROR]', error);
       return response.status(500).json({ error: 'Internal Server Error' });
     }
   } catch (error: any) {
+    // use error_callback to redirect here
     console.log('[GOOGLE_OAUTH_ERROR]', error?.response?.data);
     return response.status(500).json({ error: 'Internal Server Error' });
   }

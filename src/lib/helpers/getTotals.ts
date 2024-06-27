@@ -39,8 +39,8 @@ export interface PopulatedOrderItemTypes {
 export const getSubTotal = (order_items: PopulatedOrderItemTypes[]) => {
   let subTotal = 0;
 
-  order_items.forEach((order_items) => {
-    subTotal = subTotal + order_items.product.price * order_items.quantity;
+  order_items.forEach((order_item) => {
+    subTotal = subTotal + order_item.product.price * order_item.quantity;
   });
 
   return subTotal;

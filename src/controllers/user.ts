@@ -69,9 +69,9 @@ export const updateUser = async (
 //   status?: 'pending' | 'shipped' | 'delivered';
 // }
 
-interface GetOrdersQueryParams {
-  'orders.status'?: 'pending' | 'shipped' | 'delivered';
-}
+// interface GetOrdersQueryParams {
+//   'orders.status'?: 'pending' | 'shipped' | 'delivered';
+// }
 
 // export const getUserOrders = async (
 //   request: express.Request,
@@ -169,6 +169,7 @@ interface GetOrdersQueryParams {
 // };
 
 interface GetOrdersQueryParams {
+  user: string;
   status?: 'pending' | 'shipped' | 'delivered';
 }
 
@@ -189,7 +190,7 @@ export const getUserOrders = async (
   }
 
   // build filters
-  const filters: GetOrdersQueryParams = {};
+  const filters: GetOrdersQueryParams = { user: user._id };
 
   if (status) {
     if (
@@ -202,6 +203,8 @@ export const getUserOrders = async (
 
     filters.status = status;
   }
+
+  console.log({ filters });
 
   // filter by date range?
 
@@ -697,7 +700,7 @@ export const cancelOrder = async (
   }
 
   try {
-    const orderToCancel = await Order.findById(orderId);
+    const orderToCancel = await Order.findOne({ user: user._id, _id: orderId });
 
     if (!orderToCancel) {
       return response.status(404).json({ error: 'Order not found' });

@@ -30,7 +30,7 @@ import mongooseAutoPopulate from 'mongoose-autopopulate';
 //           },
 //         },
 //       ],
-//       shipping_address: {
+//       billing_address: {
 //         receipent_name: {
 //           type: String,
 //           required: true,
@@ -96,7 +96,7 @@ const ordersSchema = new mongoose.Schema({
     },
   ],
 
-  shipping_address: {
+  billing_address: {
     receipent_name: {
       type: String,
       required: true,

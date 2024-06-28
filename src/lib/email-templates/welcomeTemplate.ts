@@ -1,16 +1,8 @@
 interface Params {
   first_name: string;
-  redirect_url: string;
-  email: string;
-  reset_string: string;
 }
 
-const passwordResetTemplate = ({
-  first_name,
-  redirect_url,
-  email,
-  reset_string,
-}: Params) => {
+const welcomeTemplate = ({ first_name }: Params) => {
   return `<!DOCTYPE html>
 <html
   lang="en"
@@ -31,7 +23,7 @@ const passwordResetTemplate = ({
       href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;1,100;1,200;1,300;1,400;1,500;1,600;1,700&display=swap"
       rel="stylesheet"
     />
-    <title>Gadget Store - Password Reset</title>
+    <title>Gadget Store - Welcome</title>
   </head>
   <body
     style="
@@ -93,7 +85,7 @@ const passwordResetTemplate = ({
             "
           >
             <div style="display: inline-flex; gap: 4px; align-items: center">
-             <img
+              <img
               src="http://localhost:3000/public/assets/icons/logo.svg"
               alt="#"
               style="
@@ -172,7 +164,7 @@ const passwordResetTemplate = ({
                   padding-bottom: 40px;
                 "
               >
-                Reset Password
+                Welcome To Gadget Store
               </h1>
 
               <div
@@ -236,11 +228,9 @@ const passwordResetTemplate = ({
                     letter-spacing: -1.44%;
                   "
                 >
-                  We noticed you requested a password reset for your Gadget Store
-                  account. No worries – we've got you covered! To reset your
-                  password, simply click on the reset password button below. If
-                  you didn't request this change, please ignore this email, and
-                  your password will remain unchanged.
+                  We are happy to have you with us. This is the start of an
+                  exciting journey and we can’t wait to see you experience our
+                  seamless e-commerce experience! Let's make online shopping a breeze together!
                 </p>
                 <br
                   style="
@@ -261,12 +251,17 @@ const passwordResetTemplate = ({
                   "
                 />
                 <p
+                  class="text"
                   style="
                     margin: 0;
                     padding: 0;
                     border-spacing: 0;
                     box-sizing: border-box;
                     font-family: 'IBM Plex Sans', sans-serif;
+                    color: #1d2639;
+                    line-height: 160%;
+                    font-size: 16px;
+                    letter-spacing: -1.44%;
                   "
                 >
                   Thank you for choosing
@@ -332,11 +327,8 @@ const passwordResetTemplate = ({
               </div>
 
               <a
-                href=${`${redirect_url}?email=${encodeURIComponent(
-                  email
-                )}&reset_string=${reset_string}`}
+                href="#"
                 class="main__content--button button"
-                target="_blank"
                 style="
                   margin: 0;
                   border-spacing: 0;
@@ -353,7 +345,7 @@ const passwordResetTemplate = ({
                   letter-spacing: -1.44%;
                   text-decoration: none;
                 "
-                >Reset password</a
+                >Login</a
               >
             </div>
 
@@ -546,4 +538,4 @@ const passwordResetTemplate = ({
 `;
 };
 
-export default passwordResetTemplate;
+export default welcomeTemplate;

@@ -5,12 +5,13 @@ import Category from '../models/category';
 import mongoose from 'mongoose';
 import { json } from 'body-parser';
 import { ObjectId } from 'mongodb';
-import upload from '../config/multer';
+// import upload from '../config/multer';
 import { port } from '../index';
 import fs from 'fs';
 import paginateQuery from '../lib/helpers/paginateQuery';
 import getImageName from '../lib/helpers/getImageName';
 import Brand from '../models/brand';
+import { productImageUpload } from '../config/multer';
 
 interface GetQueryParams {
   product_name?: any;
@@ -185,179 +186,183 @@ export const addProduct = async (
   request: express.Request,
   response: express.Response
 ) => {
-  upload.single('product_image')(request, response, async (error) => {
-    if (
-      error?.code === 'LIMIT_FILE_COUNT' ||
-      error?.code === 'LIMIT_UNEXPECTED_FILE'
-    ) {
-      return response.status(400).json({
-        error: 'Product image should be a single file',
-        errorCode: error?.code,
-        //  errorMessage: error?.message,
-      });
-    }
-
-    if (error) {
-      return response.status(500).json({ error: error.message });
-    }
-
-    // @ts-ignore
-    if (!request.file) {
-      return response.status(400).json({
-        error: 'Please supply the required product fields.',
-      });
-    }
-
-    const product = request.body;
-
-    // console.log('product', JSON.parse(product));
-
-    const {
-      product_name,
-      brand,
-      description,
-      price,
-      category,
-      product_image,
-      count_in_stock,
-      featured,
-    } = product;
-
-    // console.log('req file', request.file);
-    // console.log('req files', request.files);
-
-    // @ts-ignore
-    const productImage = request.file;
-    // @ts-ignore
-    //  const otherImages = request.files?.other_images.map((file) => {
-    //    return `http://localhost:5000/public/assets/${file?.filename}`;
-    //  });
-
-    //  console.log('main image', mainImage);
-    //  console.log('other images', otherImages);
-
-    if (
-      !product_name ||
-      !brand ||
-      !description ||
-      !price ||
-      !category ||
-      !count_in_stock ||
-      !featured ||
-      // !product_image ||
-      !productImage
-      //  !otherImages
-    ) {
-      return response.status(400).json({
-        error: 'Please supply the required product fields.',
-      });
-    }
-
-    // CHECK IF FEATURED IS A BOOLEAN
-    // if (typeof featured !== 'boolean') {
-    //   return response
-    //     .status(400)
-    //     .json({ error: 'Featured should be a boolean value' });
-    // }
-
-    let isFeatured;
-
-    if (featured !== undefined) {
-      if (featured === 'true') {
-        isFeatured = true;
-      } else if (featured === 'false') {
-        isFeatured = false;
-      } else {
-        return response
-          .status(400)
-          .json({ error: 'Featured should be a boolean value' });
-      }
-    }
-
-    console.log('is featured', isFeatured);
-
-    // CHECK IF PRICE IS A NUMBER
-    if (isNaN(price)) {
-      return response.status(400).json({ error: 'Price should be a number' });
-    }
-
-    // CHECK IF COUNT IN STOCK IS A NUMBER
-    if (isNaN(count_in_stock)) {
-      return response
-        .status(400)
-        .json({ error: 'Count in stock should be a number' });
-    }
-
-    if (brand) {
-      // CHECK IF BRAND ID IS VALID
-      if (!mongoose.isValidObjectId(brand)) {
-        return response.status(400).json({ error: 'Invalid Brand ID' });
+  productImageUpload.single('product_image')(
+    request,
+    response,
+    async (error) => {
+      if (
+        error?.code === 'LIMIT_FILE_COUNT' ||
+        error?.code === 'LIMIT_UNEXPECTED_FILE'
+      ) {
+        return response.status(400).json({
+          error: 'Product image should be a single file',
+          errorCode: error?.code,
+          //  errorMessage: error?.message,
+        });
       }
 
-      // CHECK IF BRAND EXISTS
-      try {
-        const brandExists = await Brand.findById(brand);
-
-        if (!brandExists) {
-          return response.status(404).json({
-            error: 'Brand with the provided ID does not exist.',
-          });
-        }
-      } catch (error: any) {
-        console.log('[BRAND_FETCH_ERROR]', error);
-        return response.status(500).json({ error: 'Internal Server Error' });
-      }
-    }
-
-    if (category) {
-      // CHECK IF CATEGORY ID IS VALID
-      if (!mongoose.isValidObjectId(category)) {
-        return response.status(400).json({ error: 'Invalid Category ID' });
+      if (error) {
+        return response.status(500).json({ error: error.message });
       }
 
-      // CHECK IF CATEGORY EXISTS
-      try {
-        const categoryExists = await Category.findById(category);
-
-        if (!categoryExists) {
-          return response.status(404).json({
-            error: 'Category with the provided ID does not exist.',
-          });
-        }
-      } catch (error: any) {
-        console.log('[CATEGORY_FETCH_ERROR]', error);
-        return response.status(500).json({ error: 'Internal Server Error' });
+      // @ts-ignore
+      if (!request.file) {
+        return response.status(400).json({
+          error: 'Please supply the required product fields.',
+        });
       }
-    }
 
-    try {
-      // console.log('[REQUEST]', request);
+      const product = request.body;
 
-      // console.log('[REQUEST_PROTOCOL]', request.protocol);
-      // console.log('[REQUEST_HOSTNAME]', request.hostname);
-      // console.log('[REQUEST_BASE_URL]', request.baseUrl);
+      // console.log('product', JSON.parse(product));
 
-      // const baseUrl = `${request.protocol}://${request.hostname}:${port}/public/assets`
-
-      const addedProduct = await Product.create({
+      const {
         product_name,
         brand,
         description,
         price,
         category,
-        // product_image: `http://localhost:5000/public/assets/products/${productImage?.filename}`,
-        product_image: `http://localhost:5000/public/assets/${productImage?.filename}`,
-        //  other_images: otherImages,
-        // count_in_stock: count_in_stock as number,
+        product_image,
         count_in_stock,
-        featured: isFeatured,
-      });
-      return response.status(201).json(addedProduct);
-    } catch (error: any) {
-      console.log('[ADD_PRODUCT_ERROR]', error);
-      return response.status(500).json({ error: 'Internal Server Error' });
+        featured,
+      } = product;
+
+      // console.log('req file', request.file);
+      // console.log('req files', request.files);
+
+      // @ts-ignore
+      const productImage = request.file;
+      // @ts-ignore
+      //  const otherImages = request.files?.other_images.map((file) => {
+      //    return `http://localhost:5000/public/assets/${file?.filename}`;
+      //  });
+
+      //  console.log('main image', mainImage);
+      //  console.log('other images', otherImages);
+
+      if (
+        !product_name ||
+        !brand ||
+        !description ||
+        !price ||
+        !category ||
+        !count_in_stock ||
+        !featured ||
+        // !product_image ||
+        !productImage
+        //  !otherImages
+      ) {
+        return response.status(400).json({
+          error: 'Please supply the required product fields.',
+        });
+      }
+
+      // CHECK IF FEATURED IS A BOOLEAN
+      // if (typeof featured !== 'boolean') {
+      //   return response
+      //     .status(400)
+      //     .json({ error: 'Featured should be a boolean value' });
+      // }
+
+      let isFeatured;
+
+      if (featured !== undefined) {
+        if (featured === 'true') {
+          isFeatured = true;
+        } else if (featured === 'false') {
+          isFeatured = false;
+        } else {
+          return response
+            .status(400)
+            .json({ error: 'Featured should be a boolean value' });
+        }
+      }
+
+      console.log('is featured', isFeatured);
+
+      // CHECK IF PRICE IS A NUMBER
+      if (isNaN(price)) {
+        return response.status(400).json({ error: 'Price should be a number' });
+      }
+
+      // CHECK IF COUNT IN STOCK IS A NUMBER
+      if (isNaN(count_in_stock)) {
+        return response
+          .status(400)
+          .json({ error: 'Count in stock should be a number' });
+      }
+
+      if (brand) {
+        // CHECK IF BRAND ID IS VALID
+        if (!mongoose.isValidObjectId(brand)) {
+          return response.status(400).json({ error: 'Invalid Brand ID' });
+        }
+
+        // CHECK IF BRAND EXISTS
+        try {
+          const brandExists = await Brand.findById(brand);
+
+          if (!brandExists) {
+            return response.status(404).json({
+              error: 'Brand with the provided ID does not exist.',
+            });
+          }
+        } catch (error: any) {
+          console.log('[BRAND_FETCH_ERROR]', error);
+          return response.status(500).json({ error: 'Internal Server Error' });
+        }
+      }
+
+      if (category) {
+        // CHECK IF CATEGORY ID IS VALID
+        if (!mongoose.isValidObjectId(category)) {
+          return response.status(400).json({ error: 'Invalid Category ID' });
+        }
+
+        // CHECK IF CATEGORY EXISTS
+        try {
+          const categoryExists = await Category.findById(category);
+
+          if (!categoryExists) {
+            return response.status(404).json({
+              error: 'Category with the provided ID does not exist.',
+            });
+          }
+        } catch (error: any) {
+          console.log('[CATEGORY_FETCH_ERROR]', error);
+          return response.status(500).json({ error: 'Internal Server Error' });
+        }
+      }
+
+      try {
+        // console.log('[REQUEST]', request);
+
+        // console.log('[REQUEST_PROTOCOL]', request.protocol);
+        // console.log('[REQUEST_HOSTNAME]', request.hostname);
+        // console.log('[REQUEST_BASE_URL]', request.baseUrl);
+
+        // const baseUrl = `${request.protocol}://${request.hostname}:${port}/public/assets`
+
+        const addedProduct = await Product.create({
+          product_name,
+          brand,
+          description,
+          price,
+          category,
+          product_image: `http://localhost:5000/public/assets/products/${productImage?.filename}`,
+          // product_image: `http://localhost:5000/public/assets/${productImage?.filename}`,
+          //  other_images: otherImages,
+          // count_in_stock: count_in_stock as number,
+          count_in_stock,
+          featured: isFeatured,
+        });
+        return response.status(201).json(addedProduct);
+      } catch (error: any) {
+        console.log('[ADD_PRODUCT_ERROR]', error);
+        return response.status(500).json({ error: 'Internal Server Error' });
+      }
     }
-  });
+  );
 
   // UPLOAD.FIELD() TAKES AN ARRAY OF FILE FIELDS AND ADDS AN OBJECT CONTAINING EACH, WITH THE NAME AS THE KEY, AND AN ARRAY OF THE FILES FROM SUCH FIELD AS THE VALUE TO THE REQUEST.FILES OBJECT
   // upload.fields([
@@ -383,72 +388,53 @@ export const updateProduct = async (
   request: express.Request,
   response: express.Response
 ) => {
-  upload.single('product_image')(request, response, async (error) => {
-    if (
-      error?.code === 'LIMIT_FILE_COUNT' ||
-      error?.code === 'LIMIT_UNEXPECTED_FILE'
-    ) {
-      return response.status(400).json({
-        error: 'Product image should be a single file',
-        errorCode: error?.code,
-      });
-    }
-
-    if (error) {
-      return response.status(500).json({ error: error.message });
-    }
-
-    const { id } = request.params;
-    const {
-      product_name,
-      brand,
-      description,
-      price,
-      category,
-      product_image,
-      // other_images,
-      count_in_stock,
-      featured,
-    } = request.body;
-
-    if (!mongoose.isValidObjectId(id)) {
-      // IF PRODUCT ID IS INVALID, DELETE ALREADY UPLOADED IMAGE, IF ANY
-      if (request.file) {
-        try {
-          await new Promise((resolve, reject) => {
-            fs.unlink(request.file?.filename!, (error) => {
-              if (error) {
-                reject(error);
-              } else {
-                resolve('');
-              }
-            });
-          });
-        } catch (error: any) {
-          console.log('PREVIOUS_IMAGE_DELETION_ERROR', error);
-          return response.status(500).json({ error: 'Internal Server Error' });
-        }
+  productImageUpload.single('product_image')(
+    request,
+    response,
+    async (error) => {
+      if (
+        error?.code === 'LIMIT_FILE_COUNT' ||
+        error?.code === 'LIMIT_UNEXPECTED_FILE'
+      ) {
+        return response.status(400).json({
+          error: 'Product image should be a single file',
+          errorCode: error?.code,
+        });
       }
 
-      return response.status(400).json({ error: 'Invalid Product ID' });
-    }
+      if (error) {
+        return response.status(500).json({ error: error.message });
+      }
 
-    // CHECK IF PRODUCT EXISTS
-    try {
-      const productExists = await Product.findById(id);
+      const { id } = request.params;
+      const {
+        product_name,
+        brand,
+        description,
+        price,
+        category,
+        product_image,
+        // other_images,
+        count_in_stock,
+        featured,
+      } = request.body;
 
-      if (!productExists) {
-        // IF PRODUCT DOES NOT EXIST, DELETE ALREADY UPLOADED IMAGE, IF ANY
+      if (!mongoose.isValidObjectId(id)) {
+        // IF PRODUCT ID IS INVALID, DELETE ALREADY UPLOADED IMAGE, IF ANY
         if (request.file) {
           try {
             await new Promise((resolve, reject) => {
-              fs.unlink(request.file?.filename!, (error) => {
-                if (error) {
-                  reject(error);
-                } else {
-                  resolve('');
+              // fs.unlink(request.file?.filename!, (error) => {
+              fs.unlink(
+                `src/assets/products/${request.file?.filename!}`,
+                (error) => {
+                  if (error) {
+                    reject(error);
+                  } else {
+                    resolve('');
+                  }
                 }
-              });
+              );
             });
           } catch (error: any) {
             console.log('PREVIOUS_IMAGE_DELETION_ERROR', error);
@@ -458,237 +444,279 @@ export const updateProduct = async (
           }
         }
 
-        return response
-          .status(404)
-          .json({ error: 'Product with the supplied ID does not exist.' });
+        return response.status(400).json({ error: 'Invalid Product ID' });
       }
 
-      if (
-        !product_name &&
-        !brand &&
-        !description &&
-        !price &&
-        !category &&
-        !count_in_stock &&
-        featured === undefined &&
-        // !main_image &&
-        // !other_images &&
-        !request.file
-        // @ts-ignore
-        // !request.files?.product_image
-        // @ts-ignore
-        // !request.files?.other_images
-      ) {
-        return response.status(400).json({
-          error: 'No field to be edited was supplied',
-        });
-      }
-
-      // BUILD UPDATES BASED ON BODY DATA
-      const updates: Updates = {};
-
-      if (product_name) {
-        updates.product_name = product_name;
-      }
-
-      if (description) {
-        updates.description = description;
-      }
-
-      if (price) {
-        // CHECK IF PRICE IS A NUMBER
-        if (isNaN(price)) {
-          return response
-            .status(400)
-            .json({ error: 'Price should be a number' });
-        } else {
-          updates.price = +price;
-        }
-      }
-
-      if (count_in_stock) {
-        // CHECK IF COUNT IN STOCK IS A NUMBER
-        if (isNaN(count_in_stock)) {
-          return response
-            .status(400)
-            .json({ error: 'Count in stock should be a number' });
-        } else {
-          updates.count_in_stock = +count_in_stock;
-        }
-      }
-
-      // console.log('featured', featured);
-      // console.log('type of featured', typeof featured);
-
-      // if (featured !== undefined) {
-      //   if (typeof featured !== 'boolean') {
-      //     return response
-      //       .status(400)
-      //       .json({ error: 'Featured should be a boolean' });
-      //   } else {
-      //     updates.featured = featured;
-      //   }
-      // }
-
-      if (featured !== undefined) {
-        if (featured === 'true') {
-          updates.featured = true;
-        } else if (featured === 'false') {
-          updates.featured = false;
-        } else {
-          return response
-            .status(400)
-            .json({ error: 'Featured should be a boolean value' });
-        }
-      }
-
-      if (request.file) {
-        // // IF A NEW IMAGE IS UPLOADED, DELETE PREVIOUSLY UPLOADED IMAGE, IF ANY
-        // const imageUrls = [productExists.product_image];
-
-        // const filePaths = imageUrls.map(
-        //   // (imageUrl) => `src/assets/products/${getImageName(imageUrl)}`
-        //   (imageUrl) => `src/assets/${getImageName(imageUrl)}`
-        // );
-
-        // try {
-        //   const promises = filePaths.map((filePath) => {
-        //     return new Promise((resolve, reject) => {
-        //       fs.unlink(filePath, (error) => {
-        //         if (error) {
-        //           reject(error);
-        //         } else {
-        //           resolve('');
-        //         }
-        //       });
-        //     });
-        //   });
-
-        //   await Promise.all(promises);
-
-        // } catch (error: any) {
-        //   console.log('PREVIOUS_IMAGE_DELETION_ERROR', error);
-        //   return response.status(500).json({ error: 'Internal Server Error' });
-        // }
-
-        const mainImage = request.file;
-        // updates.product_image = `http://localhost:5000/public/assets/products/${mainImage?.filename}`;
-        updates.product_image = `http://localhost:5000/public/assets/${mainImage?.filename}`;
-      }
-      // @ts-ignore
-      // if (request.files?.other_images) {
-      //   // @ts-ignore
-      //   const otherImages = request.files?.other_images.map((file) => {
-      //     return `http://localhost:5000/public/assets/${file?.filename}`;
-      //   });
-      //   updates.other_images = otherImages;
-      // }
-
-      if (brand) {
-        // CHECK IF BRAND ID IS VALID
-        if (!mongoose.isValidObjectId(brand)) {
-          return response.status(400).json({ error: 'Invalid Brand ID' });
-        }
-
-        // CHECK IF BRAND EXISTS
-        try {
-          const brandExists = await Brand.findById(brand);
-
-          if (!brandExists) {
-            return response.status(404).json({
-              error: 'Brand with the provided ID does not exist.',
-            });
-          }
-
-          updates.brand = brand;
-        } catch (error: any) {
-          console.log('[BRAND_FETCH_ERROR]', error);
-          return response.status(500).json({ error: 'Internal Server Error' });
-        }
-      }
-
-      if (category) {
-        // CHECK IF CATEGORY ID IS VALID
-        if (!mongoose.isValidObjectId(category)) {
-          return response.status(400).json({ error: 'Invalid Category ID' });
-        }
-
-        // CHECK IF CATEGORY EXISTS
-        try {
-          const categoryExists = await Category.findById(category);
-
-          if (!categoryExists) {
-            return response.status(404).json({
-              error: 'Category with the provided ID does not exist.',
-            });
-          }
-
-          updates.category = category;
-        } catch (error: any) {
-          console.log('[CATEGORY_FETCH_ERROR]', error);
-          return response.status(500).json({ error: 'Internal Server Error' });
-        }
-      }
-
-      console.log(updates);
-
+      // CHECK IF PRODUCT EXISTS
       try {
-        const session = await mongoose.startSession();
+        const productExists = await Product.findById(id);
 
-        try {
-          const transactionResult = await session.withTransaction(async () => {
-            if (updates.product_image) {
-              // IF A NEW IMAGE IS UPLOADED, DELETE PREVIOUSLY UPLOADED IMAGE, IF ANY
-              const imageUrls = [productExists.product_image];
-
-              const filePaths = imageUrls.map(
-                // (imageUrl) => `src/assets/products/${getImageName(imageUrl)}`
-                (imageUrl) => `src/assets/${getImageName(imageUrl)}`
-              );
-
-              const promises = filePaths.map((filePath) => {
-                return new Promise((resolve, reject) => {
-                  fs.unlink(filePath, (error) => {
+        if (!productExists) {
+          // IF PRODUCT DOES NOT EXIST, DELETE ALREADY UPLOADED IMAGE, IF ANY
+          if (request.file) {
+            try {
+              await new Promise((resolve, reject) => {
+                // fs.unlink(request.file?.filename!, (error) => {
+                fs.unlink(
+                  `src/assets/products/${request.file?.filename!}`,
+                  (error) => {
                     if (error) {
                       reject(error);
                     } else {
                       resolve('');
                     }
-                  });
-                });
+                  }
+                );
               });
+            } catch (error: any) {
+              console.log('PREVIOUS_IMAGE_DELETION_ERROR', error);
+              return response
+                .status(500)
+                .json({ error: 'Internal Server Error' });
+            }
+          }
 
-              await Promise.all(promises);
+          return response
+            .status(404)
+            .json({ error: 'Product with the supplied ID does not exist.' });
+        }
+
+        if (
+          !product_name &&
+          !brand &&
+          !description &&
+          !price &&
+          !category &&
+          !count_in_stock &&
+          featured === undefined &&
+          // !main_image &&
+          // !other_images &&
+          !request.file
+          // @ts-ignore
+          // !request.files?.product_image
+          // @ts-ignore
+          // !request.files?.other_images
+        ) {
+          return response.status(400).json({
+            error: 'No field to be edited was supplied',
+          });
+        }
+
+        // BUILD UPDATES BASED ON BODY DATA
+        const updates: Updates = {};
+
+        if (product_name) {
+          updates.product_name = product_name;
+        }
+
+        if (description) {
+          updates.description = description;
+        }
+
+        if (price) {
+          // CHECK IF PRICE IS A NUMBER
+          if (isNaN(price)) {
+            return response
+              .status(400)
+              .json({ error: 'Price should be a number' });
+          } else {
+            updates.price = +price;
+          }
+        }
+
+        if (count_in_stock) {
+          // CHECK IF COUNT IN STOCK IS A NUMBER
+          if (isNaN(count_in_stock)) {
+            return response
+              .status(400)
+              .json({ error: 'Count in stock should be a number' });
+          } else {
+            updates.count_in_stock = +count_in_stock;
+          }
+        }
+
+        // console.log('featured', featured);
+        // console.log('type of featured', typeof featured);
+
+        // if (featured !== undefined) {
+        //   if (typeof featured !== 'boolean') {
+        //     return response
+        //       .status(400)
+        //       .json({ error: 'Featured should be a boolean' });
+        //   } else {
+        //     updates.featured = featured;
+        //   }
+        // }
+
+        if (featured !== undefined) {
+          if (featured === 'true') {
+            updates.featured = true;
+          } else if (featured === 'false') {
+            updates.featured = false;
+          } else {
+            return response
+              .status(400)
+              .json({ error: 'Featured should be a boolean value' });
+          }
+        }
+
+        if (request.file) {
+          // // IF A NEW IMAGE IS UPLOADED, DELETE PREVIOUSLY UPLOADED IMAGE, IF ANY
+          // const imageUrls = [productExists.product_image];
+
+          // const filePaths = imageUrls.map(
+          //   // (imageUrl) => `src/assets/products/${getImageName(imageUrl)}`
+          //   (imageUrl) => `src/assets/products/${getImageName(imageUrl)}`
+          // );
+
+          // try {
+          //   const promises = filePaths.map((filePath) => {
+          //     return new Promise((resolve, reject) => {
+          //       fs.unlink(filePath, (error) => {
+          //         if (error) {
+          //           reject(error);
+          //         } else {
+          //           resolve('');
+          //         }
+          //       });
+          //     });
+          //   });
+
+          //   await Promise.all(promises);
+
+          // } catch (error: any) {
+          //   console.log('PREVIOUS_IMAGE_DELETION_ERROR', error);
+          //   return response.status(500).json({ error: 'Internal Server Error' });
+          // }
+
+          const mainImage = request.file;
+          updates.product_image = `http://localhost:5000/public/assets/products/${mainImage?.filename}`;
+          // updates.product_image = `http://localhost:5000/public/assets/${mainImage?.filename}`;
+        }
+        // @ts-ignore
+        // if (request.files?.other_images) {
+        //   // @ts-ignore
+        //   const otherImages = request.files?.other_images.map((file) => {
+        //     return `http://localhost:5000/public/assets/${file?.filename}`;
+        //   });
+        //   updates.other_images = otherImages;
+        // }
+
+        if (brand) {
+          // CHECK IF BRAND ID IS VALID
+          if (!mongoose.isValidObjectId(brand)) {
+            return response.status(400).json({ error: 'Invalid Brand ID' });
+          }
+
+          // CHECK IF BRAND EXISTS
+          try {
+            const brandExists = await Brand.findById(brand);
+
+            if (!brandExists) {
+              return response.status(404).json({
+                error: 'Brand with the provided ID does not exist.',
+              });
             }
 
-            const updatedProduct = await Product.findByIdAndUpdate(
-              id,
-              updates,
-              {
-                new: true,
-                session,
+            updates.brand = brand;
+          } catch (error: any) {
+            console.log('[BRAND_FETCH_ERROR]', error);
+            return response
+              .status(500)
+              .json({ error: 'Internal Server Error' });
+          }
+        }
+
+        if (category) {
+          // CHECK IF CATEGORY ID IS VALID
+          if (!mongoose.isValidObjectId(category)) {
+            return response.status(400).json({ error: 'Invalid Category ID' });
+          }
+
+          // CHECK IF CATEGORY EXISTS
+          try {
+            const categoryExists = await Category.findById(category);
+
+            if (!categoryExists) {
+              return response.status(404).json({
+                error: 'Category with the provided ID does not exist.',
+              });
+            }
+
+            updates.category = category;
+          } catch (error: any) {
+            console.log('[CATEGORY_FETCH_ERROR]', error);
+            return response
+              .status(500)
+              .json({ error: 'Internal Server Error' });
+          }
+        }
+
+        console.log(updates);
+
+        try {
+          const session = await mongoose.startSession();
+
+          try {
+            const transactionResult = await session.withTransaction(
+              async () => {
+                if (updates.product_image) {
+                  // IF A NEW IMAGE IS UPLOADED, DELETE PREVIOUSLY UPLOADED IMAGE, IF ANY
+                  const imageUrls = [productExists.product_image];
+
+                  const filePaths = imageUrls.map(
+                    (imageUrl) =>
+                      `src/assets/products/${getImageName(imageUrl)}`
+                    // (imageUrl) => `src/assets/${getImageName(imageUrl)}`
+                  );
+
+                  const promises = filePaths.map((filePath) => {
+                    return new Promise((resolve, reject) => {
+                      fs.unlink(filePath, (error) => {
+                        if (error) {
+                          reject(error);
+                        } else {
+                          resolve('');
+                        }
+                      });
+                    });
+                  });
+
+                  await Promise.all(promises);
+                }
+
+                const updatedProduct = await Product.findByIdAndUpdate(
+                  id,
+                  updates,
+                  {
+                    new: true,
+                    session,
+                  }
+                );
+
+                return response.status(200).json(updatedProduct);
               }
             );
 
-            return response.status(200).json(updatedProduct);
-          });
-
-          return transactionResult;
+            return transactionResult;
+          } catch (error: any) {
+            console.log('[TRANSACTION_ERROR]', error);
+            return response
+              .status(500)
+              .json({ error: 'Internal Server Error' });
+          } finally {
+            await session.endSession();
+          }
         } catch (error: any) {
-          console.log('[TRANSACTION_ERROR]', error);
+          console.log('[SESSION_START_ERROR]', error);
           return response.status(500).json({ error: 'Internal Server Error' });
-        } finally {
-          await session.endSession();
         }
       } catch (error: any) {
-        console.log('[SESSION_START_ERROR]', error);
+        console.log('[PRODUCT_FETCH_ERROR]', error);
         return response.status(500).json({ error: 'Internal Server Error' });
       }
-    } catch (error: any) {
-      console.log('[PRODUCT_FETCH_ERROR]', error);
-      return response.status(500).json({ error: 'Internal Server Error' });
     }
-  });
+  );
 
   // upload.fields([
   //   { name: 'main_image', maxCount: 1 },
@@ -728,7 +756,7 @@ export const deleteProduct = async (
 
           const filePaths = imageUrls.map(
             // (imageUrl) => `src/assets/products/${getImageName(imageUrl)}`
-            (imageUrl) => `src/assets/${getImageName(imageUrl)}`
+            (imageUrl) => `src/assets/products/${getImageName(imageUrl)}`
           );
 
           const promises = filePaths.map((filePath) => {

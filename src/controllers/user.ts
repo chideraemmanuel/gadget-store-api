@@ -301,11 +301,11 @@ export const getSingleUserOrder = async (
 //   const user = request.user; // COMES FROM AUTHENTICATE MIDDLEWARE
 //   // order_id;
 //   // order_items;
-//   // shipping_address;
+//   // billing_address;
 //   // status;
 //   // order_date;
 //   // total_price;
-//   const { order_items, shipping_address } = request.body;
+//   const { order_items, billing_address } = request.body;
 
 //   if (!order_items || order_items.length === 0) {
 //     return response.status(400).json({
@@ -314,14 +314,14 @@ export const getSingleUserOrder = async (
 //     });
 //   }
 
-//   if (!shipping_address) {
+//   if (!billing_address) {
 //     return response
 //       .status(400)
 //       .json({ error: 'Please provide a shipping address.' });
 //   }
 
 //   const { receipent_name, address, postal_code, city, state, country } =
-//     shipping_address;
+//     billing_address;
 
 //   if (
 //     !receipent_name ||
@@ -434,7 +434,7 @@ export const getSingleUserOrder = async (
 //                 order_id: uuid(),
 //                 // order_items: order_items,
 //                 order_items: validOrderItems,
-//                 shipping_address: shipping_address,
+//                 billing_address: billing_address,
 //                 status: 'pending',
 //                 order_date: Date.now(),
 //                 total_price: getSubTotal(populatedOrderItems),
@@ -457,7 +457,7 @@ export const getSingleUserOrder = async (
 //               orders: {
 //                 order_id: uuid(),
 //                 order_items: validOrderItems,
-//                 shipping_address: shipping_address,
+//                 billing_address: billing_address,
 //                 status: 'pending',
 //                 order_date: Date.now(),
 //                 total_price: getSubTotal(populatedOrderItems),
@@ -494,7 +494,7 @@ export const placeOrder = async (
   // @ts-ignore
   const user = request.user; // COMES FROM AUTHENTICATE MIDDLEWARE
 
-  const { order_items, shipping_address } = request.body;
+  const { order_items, billing_address } = request.body;
 
   if (!order_items || order_items.length === 0) {
     return response.status(400).json({
@@ -503,14 +503,14 @@ export const placeOrder = async (
     });
   }
 
-  if (!shipping_address) {
+  if (!billing_address) {
     return response
       .status(400)
       .json({ error: 'Please provide a shipping address.' });
   }
 
   const { receipent_name, address, postal_code, city, state, country } =
-    shipping_address;
+    billing_address;
 
   if (
     !receipent_name ||
@@ -613,7 +613,7 @@ export const placeOrder = async (
       const createdOrder = await Order.create({
         user: user._id,
         order_items: validOrderItems,
-        shipping_address: shipping_address,
+        billing_address: billing_address,
         status: 'pending',
         order_date: Date.now(),
         total_price: getSubTotal(populatedOrderItems),

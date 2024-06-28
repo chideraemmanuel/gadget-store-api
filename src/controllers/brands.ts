@@ -2,9 +2,10 @@ import express from 'express';
 import paginateQuery from '../lib/helpers/paginateQuery';
 import Brand from '../models/brand';
 import mongoose from 'mongoose';
-import upload from '../config/multer';
+// import upload from '../config/multer';
 import fs from 'fs';
 import getImageName from '../lib/helpers/getImageName';
+import { brandLogoUpload } from '../config/multer';
 
 interface Filters {
   name?: any;
@@ -97,7 +98,7 @@ export const addBrand = async (
   request: express.Request,
   response: express.Response
 ) => {
-  upload.single('brand_logo')(request, response, async (error) => {
+  brandLogoUpload.single('brand_logo')(request, response, async (error) => {
     if (
       error?.code === 'LIMIT_FILE_COUNT' ||
       error?.code === 'LIMIT_UNEXPECTED_FILE'
@@ -138,8 +139,8 @@ export const addBrand = async (
     try {
       const addedBrand = await Brand.create({
         name,
-        // brand_logo: `http://localhost:5000/public/assets/brands/${brandLogo?.filename}`,
-        brand_logo: `http://localhost:5000/public/assets/${brandLogo?.filename}`,
+        brand_logo: `http://localhost:5000/public/assets/brands/${brandLogo?.filename}`,
+        // brand_logo: `http://localhost:5000/public/assets/${brandLogo?.filename}`,
       });
 
       return response.status(201).json(addedBrand);
@@ -159,7 +160,7 @@ export const updateBrand = async (
   request: express.Request,
   response: express.Response
 ) => {
-  upload.single('brand_logo')(request, response, async (error) => {
+  brandLogoUpload.single('brand_logo')(request, response, async (error) => {
     if (
       error?.code === 'LIMIT_FILE_COUNT' ||
       error?.code === 'LIMIT_UNEXPECTED_FILE'
@@ -183,13 +184,17 @@ export const updateBrand = async (
       if (request.file) {
         try {
           await new Promise((resolve, reject) => {
-            fs.unlink(request.file?.filename!, (error) => {
-              if (error) {
-                reject(error);
-              } else {
-                resolve('');
+            // fs.unlink(request.file?.filename!, (error) => {
+            fs.unlink(
+              `src/assets/brands/${request.file?.filename!}`,
+              (error) => {
+                if (error) {
+                  reject(error);
+                } else {
+                  resolve('');
+                }
               }
-            });
+            );
           });
         } catch (error: any) {
           console.log('PREVIOUS_IMAGE_DELETION_ERROR', error);
@@ -209,13 +214,17 @@ export const updateBrand = async (
         if (request.file) {
           try {
             await new Promise((resolve, reject) => {
-              fs.unlink(request.file?.filename!, (error) => {
-                if (error) {
-                  reject(error);
-                } else {
-                  resolve('');
+              // fs.unlink(request.file?.filename!, (error) => {
+              fs.unlink(
+                `src/assets/brands/${request.file?.filename!}`,
+                (error) => {
+                  if (error) {
+                    reject(error);
+                  } else {
+                    resolve('');
+                  }
                 }
-              });
+              );
             });
           } catch (error: any) {
             console.log('PREVIOUS_IMAGE_DELETION_ERROR', error);
@@ -244,7 +253,8 @@ export const updateBrand = async (
       }
 
       if (brandLogo) {
-        updates.brand_logo = `http://localhost:5000/public/assets/${brandLogo?.filename}`;
+        // updates.brand_logo = `http://localhost:5000/public/assets/${brandLogo?.filename}`;
+        updates.brand_logo = `http://localhost:5000/public/assets/brands/${brandLogo?.filename}`;
       }
 
       console.log(updates);
@@ -260,7 +270,7 @@ export const updateBrand = async (
 
               const filePaths = imageUrls.map(
                 // (imageUrl) => `src/assets/products/${getImageName(imageUrl)}`
-                (imageUrl) => `src/assets/${getImageName(imageUrl)}`
+                (imageUrl) => `src/assets/brands/${getImageName(imageUrl)}`
               );
 
               const promises = filePaths.map((filePath) => {
@@ -335,7 +345,7 @@ export const deleteBrand = async (
 
           const filePaths = imageUrls.map(
             // (imageUrl) => `src/assets/brands/${getImageName(imageUrl)}`
-            (imageUrl) => `src/assets/${getImageName(imageUrl)}`
+            (imageUrl) => `src/assets/brands/${getImageName(imageUrl)}`
           );
 
           const promises = filePaths.map((filePath) => {

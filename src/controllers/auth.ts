@@ -12,6 +12,7 @@ import PasswordReset from '../models/passwordReset';
 import userVerificationTemplate from '../lib/email-templates/userVerificationTemplate';
 import passwordResetTemplate from '../lib/email-templates/passwordResetTemplate';
 import axios from 'axios';
+import welcomeTemplate from '../lib/email-templates/welcomeTemplate';
 
 export const registerUser = async (
   request: express.Request,
@@ -90,7 +91,8 @@ export const registerUser = async (
           }),
         });
 
-        console.log('Mail sent!', info.messageId);
+        // console.log('Mail sent!', info.messageId);
+        console.log('Mail sent!', info);
 
         //   return response
         //     .status(201)
@@ -148,7 +150,11 @@ export const authenticateUserWithGoogle = async (
 
   if (!code) {
     // use error_callback to redirect here
-    return response.status(400).json({ error: 'Authetication failed' });
+    // const url = `${request.protocol}://${request.get('host')}${request.originalUrl}`
+    // const url = `${request.protocol}://${request.hostname}${request.originalUrl}${error_callback}`
+    const url = `http://localhost:3000${error_callback}`;
+    return response.redirect(url);
+    // return response.status(400).json({ error: 'Authetication failed' });
   }
 
   const base = 'https://oauth2.googleapis.com/token';
@@ -157,7 +163,11 @@ export const authenticateUserWithGoogle = async (
     code,
     client_id: process.env.GOOGLE_CLIENT_ID!,
     client_secret: process.env.GOOGLE_CLIENT_SECRET!,
-    redirect_uri: 'http://localhost:5000/api/v1/auth/google',
+    // redirect_uri:
+    //   'http://localhost:5000/api/v1/auth/google?success_callback=/&error_callback=/google-auth-error',
+    redirect_uri: `http://localhost:5000/api/v1/auth/google?success_callback=${
+      success_callback ?? '/'
+    }&error_callback=${error_callback ?? '/auth/error'}`,
     grant_type: 'authorization_code',
   };
 
@@ -178,7 +188,9 @@ export const authenticateUserWithGoogle = async (
       const userExists = await User.findOne({ email });
 
       if (userExists && userExists.auth_type !== 'GOOGLE_AUTH_SERVICE') {
-        return response.status(400).json({ error: 'Email is already in use' });
+        return response.status(400).json({
+          error: 'Email is already in use. Login with password instead.',
+        });
       }
 
       if (userExists && userExists?.auth_type === 'GOOGLE_AUTH_SERVICE') {
@@ -194,7 +206,9 @@ export const authenticateUserWithGoogle = async (
         // });
 
         // use success_callback to redirect here
-        return response.status(200).cookie('token', token).json(userExists);
+        const url = `http://localhost:3000${success_callback}`;
+        return response.cookie('token', token).redirect(url);
+        // return response.status(200).cookie('token', token).json(userExists);
       }
 
       try {
@@ -206,24 +220,46 @@ export const authenticateUserWithGoogle = async (
           auth_type: 'GOOGLE_AUTH_SERVICE',
         });
 
+        const info = await sendEmail({
+          receipent: email,
+          subject: 'Welcome to Gadget Store',
+          html: welcomeTemplate({
+            first_name: given_name,
+          }),
+        });
+
+        // console.log('Mail sent!', info.messageId);
+        console.log('Mail sent!', info);
+
         const token = generateToken(createdUser._id);
 
         // use success_callback to redirect here
-        return response.status(201).cookie('token', token).json(createdUser);
+        // return response.status(201).cookie('token', token).json(createdUser);
+        const url = `http://localhost:3000${success_callback}`;
+        return response.cookie('token', token).redirect(url);
       } catch (error: any) {
         // use error_callback to redirect here
         console.log('[USER_CREATION_ERROR]', error);
-        return response.status(500).json({ error: 'Internal Server Error' });
+
+        const url = `http://localhost:3000${error_callback}`;
+        return response.redirect(url);
+        // return response.status(500).json({ error: 'Internal Server Error' });
       }
     } catch (error: any) {
       // use error_callback to redirect here
       console.log('[USER_FETCH_ERROR]', error);
-      return response.status(500).json({ error: 'Internal Server Error' });
+
+      const url = `http://localhost:3000${error_callback}`;
+      return response.redirect(url);
+      // return response.status(500).json({ error: 'Internal Server Error' });
     }
   } catch (error: any) {
     // use error_callback to redirect here
     console.log('[GOOGLE_OAUTH_ERROR]', error?.response?.data);
-    return response.status(500).json({ error: 'Internal Server Error' });
+
+    const url = `http://localhost:3000${error_callback}`;
+    return response.redirect(url);
+    // return response.status(500).json({ error: 'Internal Server Error' });
   }
 };
 
@@ -301,6 +337,13 @@ export const verifyUser = async (
       .json({ error: 'Please supply the required credentials' });
   }
 
+  if (typeof otp === 'number') {
+    // this is to counter cases where OTP starts with 0 and the 0 is removed
+    return response
+      .status(400)
+      .json({ error: 'OTP should be passed as a string' });
+  }
+
   try {
     const session = await mongoose.startSession();
 
@@ -314,7 +357,9 @@ export const verifyUser = async (
 
         // TODO: probably check OTP expiry
 
-        const otpMatches = await compareHash(otp, otpRecord.otp);
+        console.log({ otp: typeof otp, otpRecord: otpRecord.otp });
+
+        const otpMatches = await compareHash(`${otp}`, otpRecord.otp);
 
         if (!otpMatches) {
           return response.status(400).json({ error: 'Invalid OTP' });
@@ -403,7 +448,8 @@ export const resendOtp = async (
           }),
         });
 
-        console.log('Mail sent!', info.messageId);
+        // console.log('Mail sent!', info.messageId);
+        console.log('Mail sent!', info);
 
         return response
           .status(201)
@@ -493,6 +539,7 @@ export const initiatePasswordReset = async (
           });
 
           // console.log('Mail sent!', info.messageId);
+          console.log('Mail sent!', info);
 
           return response.status(201).json({
             status: 'PENDING',

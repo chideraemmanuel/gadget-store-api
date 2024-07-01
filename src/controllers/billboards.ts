@@ -158,7 +158,7 @@ export const createBillboard = async (
           name,
           head_text,
           paragraph,
-          billboard_image: `http://localhost:5000/public/assets/billboards/${billboardImage?.filename}`,
+          billboard_image: `${process.env.PROJECT_BASE_URL}/public/assets/billboards/${billboardImage?.filename}`,
           // billboard_image: `http://localhost:5000/public/assets/${billboardImage?.filename}`,
         });
 
@@ -302,8 +302,8 @@ export const updateBillboard = (
         if (request.file) {
           const billboardImage = request.file;
 
-          updates.billboard_image = `http://localhost:5000/public/assets/billboards/${billboardImage?.filename}`;
-          // updates.billboard_image = `http://localhost:5000/public/assets/${billboardImage?.filename}`;
+          updates.billboard_image = `${process.env.PROJECT_BASE_URL}/public/assets/billboards/${billboardImage?.filename}`;
+          // updates.billboard_image = `${process.env.PROJECT_BASE_URL}/public/assets/${billboardImage?.filename}`;
         }
 
         console.log(updates);

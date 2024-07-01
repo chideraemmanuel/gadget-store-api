@@ -165,7 +165,9 @@ export const authenticateUserWithGoogle = async (
     client_secret: process.env.GOOGLE_CLIENT_SECRET!,
     // redirect_uri:
     //   'http://localhost:5000/api/v1/auth/google?success_callback=/&error_callback=/google-auth-error',
-    redirect_uri: `http://localhost:5000/api/v1/auth/google?success_callback=${
+    redirect_uri: `${
+      process.env.PROJECT_BASE_URL
+    }/api/v1/auth/google?success_callback=${
       success_callback ?? '/'
     }&error_callback=${error_callback ?? '/auth/error'}`,
     grant_type: 'authorization_code',

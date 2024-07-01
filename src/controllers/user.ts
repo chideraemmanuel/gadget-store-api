@@ -7,6 +7,7 @@ import mongoose from 'mongoose';
 import Product from '../models/product';
 import { PopulatedOrderItemTypes, getSubTotal } from '../lib/helpers/getTotals';
 import { v4 as uuid } from 'uuid';
+import Cart from '../models/cart';
 
 export const getUser = async (
   request: express.Request,
@@ -610,19 +611,47 @@ export const placeOrder = async (
     console.log('subTotal:', getSubTotal(populatedOrderItems));
 
     try {
-      const createdOrder = await Order.create({
-        user: user._id,
-        order_items: validOrderItems,
-        billing_address: billing_address,
-        status: 'pending',
-        order_date: Date.now(),
-        total_price: getSubTotal(populatedOrderItems),
-      });
+      const session = await mongoose.startSession();
 
-      return response.status(201).json(createdOrder);
+      try {
+        const transactionResult = await session.withTransaction(async () => {
+          const createdOrder = await Order.create(
+            [
+              {
+                user: user._id,
+                order_items: validOrderItems,
+                billing_address: billing_address,
+                status: 'pending',
+                order_date: Date.now(),
+                total_price: getSubTotal(populatedOrderItems),
+              },
+            ],
+            { session }
+          );
+
+          const userCart = await Cart.findOne({ user: user._id });
+
+          if (userCart) {
+            await Cart.findOneAndUpdate(
+              { user: user._id },
+              {
+                $set: { cart_items: [] },
+              },
+              { new: true, session }
+            );
+          }
+
+          return response.status(201).json(createdOrder);
+        });
+
+        return transactionResult;
+      } catch (error: any) {
+        console.log('[TRANSACTION_ERROR]', error);
+        return response.status(500).json({ error: 'Internal Server Error' });
+      }
     } catch (error: any) {
-      console.log('[ORDER_RECORD_CREATION_ERROR]', error);
-      return response.status(500).json({ error: 'Internal server error' });
+      console.log('[SESSION_START_ERROR]', error);
+      return response.status(500).json({ error: 'Internal Server Error' });
     }
   } catch (error) {
     console.log('[ORDER_VALIDATION_ERROR]', error);

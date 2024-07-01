@@ -89,6 +89,16 @@ app.use('/public/assets/', express.static('src/assets'));
 //   }
 // });
 
+// app.get('/api/v1', (request: express.Request, response: express.Response) => {
+//   const fullUrl = `${request.protocol}//${request.hostname}${request.originalUrl}`;
+
+//   return response.json({
+//     fullUrl: fullUrl,
+//     baseUrl: request.baseUrl,
+//     // requestObject: request,
+//   });
+// });
+
 app.use('/api/v1/products', productsRouter);
 app.use('/api/v1/categories', categoriesRouter);
 app.use('/api/v1/billboards', billboardsRouter);

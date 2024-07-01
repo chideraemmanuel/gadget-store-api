@@ -94,7 +94,7 @@ const passwordResetTemplate = ({
           >
             <div style="display: inline-flex; gap: 4px; align-items: center">
              <img
-              src="http://localhost:3000/public/assets/icons/logo.svg"
+              src="${process.env.PROJECT_BASE_URL}/public/assets/icons/logo.svg"
               alt="#"
               style="
               width: 25px;

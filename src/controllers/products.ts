@@ -349,7 +349,7 @@ export const addProduct = async (
           description,
           price,
           category,
-          product_image: `http://localhost:5000/public/assets/products/${productImage?.filename}`,
+          product_image: `${process.env.PROJECT_BASE_URL}/public/assets/products/${productImage?.filename}`,
           // product_image: `http://localhost:5000/public/assets/${productImage?.filename}`,
           //  other_images: otherImages,
           // count_in_stock: count_in_stock as number,
@@ -590,7 +590,7 @@ export const updateProduct = async (
           // }
 
           const mainImage = request.file;
-          updates.product_image = `http://localhost:5000/public/assets/products/${mainImage?.filename}`;
+          updates.product_image = `${process.env.PROJECT_BASE_URL}/public/assets/products/${mainImage?.filename}`;
           // updates.product_image = `http://localhost:5000/public/assets/${mainImage?.filename}`;
         }
         // @ts-ignore

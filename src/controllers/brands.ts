@@ -139,7 +139,7 @@ export const addBrand = async (
     try {
       const addedBrand = await Brand.create({
         name,
-        brand_logo: `http://localhost:5000/public/assets/brands/${brandLogo?.filename}`,
+        brand_logo: `${process.env.PROJECT_BASE_URL}/public/assets/brands/${brandLogo?.filename}`,
         // brand_logo: `http://localhost:5000/public/assets/${brandLogo?.filename}`,
       });
 
@@ -254,7 +254,7 @@ export const updateBrand = async (
 
       if (brandLogo) {
         // updates.brand_logo = `http://localhost:5000/public/assets/${brandLogo?.filename}`;
-        updates.brand_logo = `http://localhost:5000/public/assets/brands/${brandLogo?.filename}`;
+        updates.brand_logo = `${process.env.PROJECT_BASE_URL}/public/assets/brands/${brandLogo?.filename}`;
       }
 
       console.log(updates);
